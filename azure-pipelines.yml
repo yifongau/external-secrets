@@ -1,0 +1,24 @@
+trigger:
+  branches:
+    include:
+    - feat/generic-webhook-ntlm-auth
+  tags:
+    include:
+    - 'v*'
+
+resources:
+  repositories:
+  - repository: templatesRepo
+    type: git
+    name: Stater/devops-pipelines
+
+jobs:
+- template: /jobs/build/docker-image.yml@templatesRepo
+  parameters:
+    path: stater
+    image: external-secrets-ntlm
+    ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/v') }}:
+      tag: ${{ replace(variables['Build.SourceBranch'], 'refs/tags/', '') }}
+    ${{ else }}:
+      tag: "v1.0.0-$(Build.BuildId)"
+    buildArgs: "--build-arg GOPROXY=http://pr-art.europe.stater.corp/artifactory/gocenter"
