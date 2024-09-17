@@ -15,6 +15,7 @@ resources:
 jobs:
 - template: /jobs/build/docker-image.yml@templatesRepo
   parameters:
+    dockerFilePath: ./Dockerfile.standalone
     path: stater
     image: external-secrets-ntlm
     ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/v') }}:
