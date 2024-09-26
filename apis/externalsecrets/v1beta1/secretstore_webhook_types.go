@@ -20,7 +20,7 @@ import (
 	esmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
 )
 
-// AkeylessProvider Configures an store to sync secrets using Akeyless KV.
+// WebHookProvider Configures an store to sync secrets from simple web apis.
 type WebhookProvider struct {
 	// Webhook Method
 	// +optional, default GET
@@ -33,6 +33,32 @@ type WebhookProvider struct {
 	// +optional
 	Headers map[string]string `json:"headers,omitempty"`
 
+	// Auth specifies a authorization protocol. Only one protocol may be set.
+	// +optional
+	Auth *AuthorizationProtocol `json:"provider"`
+
+	// AuthorizationProtocol contains the protocol-specific configuration
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=1
+	type AuthorizationProtocol struct {
+		NTLM *NTLMProtocol `json:"ntlm,omitempty"`
+	}
+
+	type NTLMProtocol struct {
+		UserName WebHookProviderSecretRef `json:"username"`
+		Password WebHookProviderSecretRef `json:"password"`
+	}
+
+	// WebHookProviderSecret allows to use secrets either directly or through secretRef
+		type WebHookProviderSecretRef struct {
+		// Value can be specified directly to set a value without using a secret.
+		// +optional
+		Value string `json:"value,omitempty"`
+		// SecretRef references a key in a secret that will be used as value.
+		// +optional
+		SecretRef *esmeta.SecretKeySelector `json:"secretRef,omitempty"`
+	}
+	
 	// Body
 	// +optional
 	Body string `json:"body,omitempty"`
