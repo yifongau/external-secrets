@@ -4994,6 +4994,71 @@ spec:
                     webhook:
                       description: Webhook configures this store to sync secrets using a generic templated webhook
                       properties:
+                        auth:
+                          description: Auth specifies a authorization protocol. Only one protocol may be set.
+                          maxProperties: 1
+                          minProperties: 1
+                          properties:
+                            ntlm:
+                              description: NTLMProtocol configures the store to use NTLM for auth
+                              properties:
+                                password:
+                                  description: WebHookProviderSecret allows to use secrets either directly or through secretRef
+                                  maxProperties: 1
+                                  minProperties: 1
+                                  properties:
+                                    secretRef:
+                                      description: SecretRef references a key in a secret that will be used as value.
+                                      properties:
+                                        key:
+                                          description: |-
+                                            The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be
+                                            defaulted, in others it may be required.
+                                          type: string
+                                        name:
+                                          description: The name of the Secret resource being referred to.
+                                          type: string
+                                        namespace:
+                                          description: |-
+                                            Namespace of the resource being referred to. Ignored if referent is not cluster-scoped. cluster-scoped defaults
+                                            to the namespace of the referent.
+                                          type: string
+                                      type: object
+                                    value:
+                                      description: Value can be specified directly to set a value without using a secret.
+                                      type: string
+                                  type: object
+                                username:
+                                  description: WebHookProviderSecret allows to use secrets either directly or through secretRef
+                                  maxProperties: 1
+                                  minProperties: 1
+                                  properties:
+                                    secretRef:
+                                      description: SecretRef references a key in a secret that will be used as value.
+                                      properties:
+                                        key:
+                                          description: |-
+                                            The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be
+                                            defaulted, in others it may be required.
+                                          type: string
+                                        name:
+                                          description: The name of the Secret resource being referred to.
+                                          type: string
+                                        namespace:
+                                          description: |-
+                                            Namespace of the resource being referred to. Ignored if referent is not cluster-scoped. cluster-scoped defaults
+                                            to the namespace of the referent.
+                                          type: string
+                                      type: object
+                                    value:
+                                      description: Value can be specified directly to set a value without using a secret.
+                                      type: string
+                                  type: object
+                              required:
+                                - password
+                                - username
+                              type: object
+                          type: object
                         body:
                           description: Body
                           type: string
@@ -10774,6 +10839,71 @@ spec:
                     webhook:
                       description: Webhook configures this store to sync secrets using a generic templated webhook
                       properties:
+                        auth:
+                          description: Auth specifies a authorization protocol. Only one protocol may be set.
+                          maxProperties: 1
+                          minProperties: 1
+                          properties:
+                            ntlm:
+                              description: NTLMProtocol configures the store to use NTLM for auth
+                              properties:
+                                password:
+                                  description: WebHookProviderSecret allows to use secrets either directly or through secretRef
+                                  maxProperties: 1
+                                  minProperties: 1
+                                  properties:
+                                    secretRef:
+                                      description: SecretRef references a key in a secret that will be used as value.
+                                      properties:
+                                        key:
+                                          description: |-
+                                            The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be
+                                            defaulted, in others it may be required.
+                                          type: string
+                                        name:
+                                          description: The name of the Secret resource being referred to.
+                                          type: string
+                                        namespace:
+                                          description: |-
+                                            Namespace of the resource being referred to. Ignored if referent is not cluster-scoped. cluster-scoped defaults
+                                            to the namespace of the referent.
+                                          type: string
+                                      type: object
+                                    value:
+                                      description: Value can be specified directly to set a value without using a secret.
+                                      type: string
+                                  type: object
+                                username:
+                                  description: WebHookProviderSecret allows to use secrets either directly or through secretRef
+                                  maxProperties: 1
+                                  minProperties: 1
+                                  properties:
+                                    secretRef:
+                                      description: SecretRef references a key in a secret that will be used as value.
+                                      properties:
+                                        key:
+                                          description: |-
+                                            The key of the entry in the Secret resource's `data` field to be used. Some instances of this field may be
+                                            defaulted, in others it may be required.
+                                          type: string
+                                        name:
+                                          description: The name of the Secret resource being referred to.
+                                          type: string
+                                        namespace:
+                                          description: |-
+                                            Namespace of the resource being referred to. Ignored if referent is not cluster-scoped. cluster-scoped defaults
+                                            to the namespace of the referent.
+                                          type: string
+                                      type: object
+                                    value:
+                                      description: Value can be specified directly to set a value without using a secret.
+                                      type: string
+                                  type: object
+                              required:
+                                - password
+                                - username
+                              type: object
+                          type: object
                         body:
                           description: Body
                           type: string

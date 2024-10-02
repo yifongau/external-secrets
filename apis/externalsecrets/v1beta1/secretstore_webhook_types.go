@@ -35,30 +35,8 @@ type WebhookProvider struct {
 
 	// Auth specifies a authorization protocol. Only one protocol may be set.
 	// +optional
-	Auth *AuthorizationProtocol `json:"provider"`
+	Auth *AuthorizationProtocol `json:"auth, omitempty"`
 
-	// AuthorizationProtocol contains the protocol-specific configuration
-	// +kubebuilder:validation:MinProperties=1
-	// +kubebuilder:validation:MaxProperties=1
-	type AuthorizationProtocol struct {
-		NTLM *NTLMProtocol `json:"ntlm,omitempty"`
-	}
-
-	type NTLMProtocol struct {
-		UserName WebHookProviderSecretRef `json:"username"`
-		Password WebHookProviderSecretRef `json:"password"`
-	}
-
-	// WebHookProviderSecret allows to use secrets either directly or through secretRef
-		type WebHookProviderSecretRef struct {
-		// Value can be specified directly to set a value without using a secret.
-		// +optional
-		Value string `json:"value,omitempty"`
-		// SecretRef references a key in a secret that will be used as value.
-		// +optional
-		SecretRef *esmeta.SecretKeySelector `json:"secretRef,omitempty"`
-	}
-	
 	// Body
 	// +optional
 	Body string `json:"body,omitempty"`
@@ -85,6 +63,34 @@ type WebhookProvider struct {
 	// The provider for the CA bundle to use to validate webhook server certificate.
 	// +optional
 	CAProvider *WebhookCAProvider `json:"caProvider,omitempty"`
+}
+
+// AuthorizationProtocol contains the protocol-specific configuration
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:MaxProperties=1
+type AuthorizationProtocol struct {
+	// NTLMProtocol configures the store to use NTLM for auth
+	// +optional
+	NTLM *NTLMProtocol `json:"ntlm,omitempty"`
+
+	// Define other protocols here
+}
+
+type NTLMProtocol struct {
+	UserName WebHookProviderSecretRef `json:"username"`
+	Password WebHookProviderSecretRef `json:"password"`
+}
+
+// WebHookProviderSecret allows to use secrets either directly or through secretRef
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:MaxProperties=1
+type WebHookProviderSecretRef struct {
+	// Value can be specified directly to set a value without using a secret.
+	// +optional
+	Value string `json:"value,omitempty"`
+	// SecretRef references a key in a secret that will be used as value.
+	// +optional
+	SecretRef *esmeta.SecretKeySelector `json:"secretRef,omitempty"`
 }
 
 type WebhookCAProviderType string
