@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
+	esmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
 )
 
 type Spec struct {
@@ -31,6 +32,10 @@ type Spec struct {
 	// Headers
 	// +optional
 	Headers map[string]string `json:"headers,omitempty"`
+
+	// Auth specifies a authorization protocol. Only one protocol may be set.
+	// +optional
+	Auth *AuthorizationProtocol `json:"auth, omitempty"`
 
 	// Body
 	// +optional
@@ -58,6 +63,34 @@ type Spec struct {
 	// The provider for the CA bundle to use to validate webhook server certificate.
 	// +optional
 	CAProvider *esv1beta1.CAProvider `json:"caProvider,omitempty"`
+}
+
+// AuthorizationProtocol contains the protocol-specific configuration
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:MaxProperties=1
+type AuthorizationProtocol struct {
+	// NTLMProtocol configures the store to use NTLM for auth
+	// +optional
+	NTLM *NTLMProtocol `json:"ntlm,omitempty"`
+
+	// Define other protocols here
+}
+
+type NTLMProtocol struct {
+	UserName WebHookProviderSecretRef `json:"username"`
+	Password WebHookProviderSecretRef `json:"password"`
+}
+
+// WebHookProviderSecret allows to use secrets either directly or through secretRef
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:MaxProperties=1
+type WebHookProviderSecretRef struct {
+	// Value can be specified directly to set a value without using a secret.
+	// +optional
+	Value string `json:"value,omitempty"`
+	// SecretRef references a key in a secret that will be used as value.
+	// +optional
+	SecretRef *esmeta.SecretKeySelector `json:"secretRef,omitempty"`
 }
 
 type Result struct {

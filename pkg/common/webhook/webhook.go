@@ -217,6 +217,11 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 		// No need to process ca stuff if it is not there
 		return client, nil
 	}
+	if provider.Auth != nil {
+		fmt.Println("auth found!")
+
+	}
+
 	caCertPool, err := w.GetCACertPool(ctx, provider)
 	if err != nil {
 		return nil, err
