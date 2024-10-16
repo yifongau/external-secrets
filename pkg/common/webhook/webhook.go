@@ -27,6 +27,7 @@ import (
 	"net/url"
 	tpl "text/template"
 
+	"github.com/Azure/go-ntlmssp"
 	"github.com/PaesslerAG/jsonpath"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -213,13 +214,14 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 
 	// append timeout to client if it is there
 	if provider.Timeout != nil {
-		client.Timeout = provider.Timeout.Duration
 		fmt.Println("timeout added!")
-		fmt.Println("%+v\n", client)
+		client.Timeout = provider.Timeout.Duration
+		fmt.Println("%#v\n", client)
 	}
 
 	// append CA to client if it is there
 	if len(provider.CABundle) > 0 || provider.CAProvider != nil {
+		fmt.Println("tlsConf!")
 
 		caCertPool, err := w.GetCACertPool(ctx, provider)
 		if err != nil {
@@ -233,13 +235,21 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 		}
 
 		client.Transport = &http.Transport{TLSClientConfig: tlsConf}
-		fmt.Println("tlsConf!")
-		fmt.Println("%+v\n", client)
-	}
 
+		fmt.Println("%#v", client)
+	}
+	// append authentication method if it s there
 	if provider.Auth != nil {
-		fmt.Println("%+v\n", client)
 		fmt.Println("auth found!")
+
+		client.Transport =
+			ntlmssp.Negotiator{ // decorator wraps existing Transport
+				RoundTripper: &http.Transport{
+					TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{}, // Needed to disable HTTP/2
+
+				},
+			}
+		fmt.Println("%#v\n", client)
 
 	}
 
