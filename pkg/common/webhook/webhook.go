@@ -210,29 +210,40 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 
 func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Client, error) {
 	client := &http.Client{}
+
+	// append timeout to client if it is there
 	if provider.Timeout != nil {
 		client.Timeout = provider.Timeout.Duration
+		fmt.Println("timeout added!")
+		fmt.Println("%+v\n", client)
 	}
-	if len(provider.CABundle) == 0 && provider.CAProvider == nil {
-		// No need to process ca stuff if it is not there
-		return client, nil
+
+	// append CA to client if it is there
+	if len(provider.CABundle) > 0 || provider.CAProvider != nil {
+
+		caCertPool, err := w.GetCACertPool(ctx, provider)
+		if err != nil {
+			return nil, err
+		}
+
+		tlsConf := &tls.Config{
+			RootCAs:       caCertPool,
+			MinVersion:    tls.VersionTLS12,
+			Renegotiation: tls.RenegotiateOnceAsClient,
+		}
+
+		client.Transport = &http.Transport{TLSClientConfig: tlsConf}
+		fmt.Println("tlsConf!")
+		fmt.Println("%+v\n", client)
 	}
+
 	if provider.Auth != nil {
+		fmt.Println("%+v\n", client)
 		fmt.Println("auth found!")
 
 	}
 
-	caCertPool, err := w.GetCACertPool(ctx, provider)
-	if err != nil {
-		return nil, err
-	}
-
-	tlsConf := &tls.Config{
-		RootCAs:       caCertPool,
-		MinVersion:    tls.VersionTLS12,
-		Renegotiation: tls.RenegotiateOnceAsClient,
-	}
-	client.Transport = &http.Transport{TLSClientConfig: tlsConf}
+	// return client with all add-ons
 	return client, nil
 }
 
