@@ -155,19 +155,25 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 		return nil, errors.New("http client not initialized")
 	}
 
-	escapedData, err := w.GetTemplateData(ctx, ref, provider.Secrets, true)
-	if err != nil {
-		return nil, err
-	}
-	rawData, err := w.GetTemplateData(ctx, ref, provider.Secrets, false)
-	if err != nil {
-		return nil, err
-	}
+	if provider.Secrets != nil {
 
+		escapeddata, err := w.gettemplatedata(ctx, ref, provider.secrets, true)
+		if err != nil {
+			return nil, err
+		}
+		rawdata, err := w.gettemplatedata(ctx, ref, provider.secrets, false)
+		if err != nil {
+			return nil, err
+		}
+
+	}
+	// set method
 	method := provider.Method
 	if method == "" {
 		method = http.MethodGet
 	}
+
+	// set url
 	url, err := ExecuteTemplateString(provider.URL, escapedData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse url: %w", err)
@@ -177,10 +183,13 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 		return nil, fmt.Errorf("failed to parse body: %w", err)
 	}
 
+	// form request
 	req, err := http.NewRequestWithContext(ctx, method, url, &body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+
+	// add extra headers
 	for hKey, hValueTpl := range provider.Headers {
 		hValue, err := ExecuteTemplateString(hValueTpl, rawData)
 		if err != nil {
@@ -189,6 +198,7 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 		req.Header.Add(hKey, hValue)
 	}
 
+	// perform request and check statuscode of response
 	resp, err := w.HTTP.Do(req)
 	metrics.ObserveAPICall(constants.ProviderWebhook, constants.CallWebhookHTTPReq, err)
 	if err != nil {
@@ -206,20 +216,22 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("endpoint gave error %s", resp.Status)
 	}
+
+	// return response body
 	return io.ReadAll(resp.Body)
 }
 
 func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Client, error) {
 	client := &http.Client{}
 
-	// append timeout to client if it is there
+	// add timeout to client if it is there
 	if provider.Timeout != nil {
 		fmt.Println("timeout added!")
 		client.Timeout = provider.Timeout.Duration
 		fmt.Println("%#v\n", client)
 	}
 
-	// append CA to client if it is there
+	// add CA to client if it is there
 	if len(provider.CABundle) > 0 || provider.CAProvider != nil {
 		fmt.Println("tlsConf!")
 
@@ -238,17 +250,25 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 
 		fmt.Println("%#v", client)
 	}
-	// append authentication method if it s there
+	// add authentication method if it s there
 	if provider.Auth != nil {
 		fmt.Println("auth found!")
 
-		client.Transport =
-			ntlmssp.Negotiator{ // decorator wraps existing Transport
-				RoundTripper: &http.Transport{
-					TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{}, // Needed to disable HTTP/2
+		fmt.Println("%#v", provider.Auth)
+		switch {
+		case provider.Auth.NTLM != nil:
+			fmt.Println("Using ntlm authentication")
+			client.Transport =
+				ntlmssp.Negotiator{ // decorator wraps existing Transport
+					RoundTripper: &http.Transport{
+						TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{}, // Needed to disable HTTP/2
 
-				},
-			}
+					},
+				}
+
+			// add additional auth methods here
+		}
+
 		fmt.Println("%#v\n", client)
 
 	}
