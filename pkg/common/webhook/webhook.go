@@ -23,7 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	tpl "text/template"
 
@@ -155,18 +157,15 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 		return nil, errors.New("http client not initialized")
 	}
 
-	if provider.Secrets != nil {
-
-		escapeddata, err := w.gettemplatedata(ctx, ref, provider.secrets, true)
-		if err != nil {
-			return nil, err
-		}
-		rawdata, err := w.gettemplatedata(ctx, ref, provider.secrets, false)
-		if err != nil {
-			return nil, err
-		}
-
+	escapedData, err := w.GetTemplateData(ctx, ref, provider.Secrets, true)
+	if err != nil {
+		return nil, err
 	}
+	rawData, err := w.GetTemplateData(ctx, ref, provider.Secrets, false)
+	if err != nil {
+		return nil, err
+	}
+
 	// set method
 	method := provider.Method
 	if method == "" {
@@ -178,6 +177,8 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse url: %w", err)
 	}
+
+	// set body
 	body, err := ExecuteTemplate(provider.Body, rawData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse body: %w", err)
@@ -197,6 +198,26 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 		}
 		req.Header.Add(hKey, hValue)
 	}
+
+	// add explicit credentials for specified auth protocols
+	// any Auth headers set here will overwrite manually set Auth in provider.Headers
+	if provider.Auth != nil {
+
+		fmt.Println("%#v", provider.Auth)
+		switch {
+		case provider.Auth.NTLM != nil:
+			//			username :=
+
+			// add additional auth methods here
+		}
+	}
+
+	qDump, err := httputil.DumpRequestOut(req, true)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("REQUEST:\n%s", string(reqDump))
 
 	// perform request and check statuscode of response
 	resp, err := w.HTTP.Do(req)

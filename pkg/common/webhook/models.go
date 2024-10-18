@@ -77,20 +77,8 @@ type AuthorizationProtocol struct {
 }
 
 type NTLMProtocol struct {
-	UserName WebHookProviderSecretRef `json:"username"`
-	Password WebHookProviderSecretRef `json:"password"`
-}
-
-// WebHookProviderSecret allows to use secrets either directly or through secretRef
-// +kubebuilder:validation:MinProperties=1
-// +kubebuilder:validation:MaxProperties=1
-type WebHookProviderSecretRef struct {
-	// Value can be specified directly to set a value without using a secret.
-	// +optional
-	Value string `json:"value,omitempty"`
-	// SecretRef references a key in a secret that will be used as value.
-	// +optional
-	SecretRef *esmeta.SecretKeySelector `json:"secretRef,omitempty"`
+	UserName *esmeta.SecretKeySelector `json:"username"`
+	Password *esmeta.SecretKeySelector `json:"password"`
 }
 
 type Result struct {
