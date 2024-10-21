@@ -219,6 +219,7 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 			}
 			password := string(PasswordSecret.Data[PasswordSecretRef.Key])
 
+			// This overwrites auth headers set by providers.headers
 			req.SetBasicAuth(username, password)
 		}
 	}
@@ -257,7 +258,7 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 	// add CA to client if it is there
 	if len(provider.CABundle) > 0 || provider.CAProvider != nil {
 
-		caCertPool, err := w.GetCACertPool(ctx, provider)
+		eaCertPool, err := w.GetCACertPool(ctx, provider)
 		if err != nil {
 			return nil, err
 		}
