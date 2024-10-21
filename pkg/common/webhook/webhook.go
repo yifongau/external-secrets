@@ -50,7 +50,7 @@ type Webhook struct {
 	ClusterScoped bool
 }
 
-func (w *Webhook) getStoreSecret(ctx context.Context, ref SecretKeySelector) (*corev1.Secret, error) {
+func (w *Webhook) getStoreSecret(ctx context.Context, ref esmeta.SecretKeySelector) (*corev1.Secret, error) {
 	ke := client.ObjectKey{
 		Name:      ref.Name,
 		Namespace: w.Namespace,
