@@ -76,10 +76,10 @@ type AuthorizationProtocol struct {
 	// Define other protocols here
 }
 
-// +kubebuilder:validation:MaxProperties=2
+// NTLMProtocol contains the NTLM-specific configuration
 type NTLMProtocol struct {
-	UserName *esmeta.SecretKeySelector `json:"username"`
-	Password *esmeta.SecretKeySelector `json:"password"`
+	UserName esmeta.SecretKeySelector `json:"usernameSecret"`
+	Password esmeta.SecretKeySelector `json:"passwordSecret"`
 }
 
 type WebhookCAProviderType string

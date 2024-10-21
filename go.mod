@@ -138,6 +138,8 @@ require (
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/lestrrat-go/httprc v1.0.6 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
+	github.com/pborman/uuid v1.2.1 // indirect
+	github.com/reflect/reflect-go v0.0.0-20180214185235-25ec44d5a1bf // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
@@ -153,6 +155,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/ghodss/yaml.v1 v1.0.0 // indirect
+	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 

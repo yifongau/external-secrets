@@ -23,9 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	tpl "text/template"
 
@@ -157,6 +155,7 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 		return nil, errors.New("http client not initialized")
 	}
 
+	// Parse store secrets
 	escapedData, err := w.GetTemplateData(ctx, ref, provider.Secrets, true)
 	if err != nil {
 		return nil, err
@@ -203,21 +202,27 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 	// any Auth headers set here will overwrite manually set Auth in provider.Headers
 	if provider.Auth != nil {
 
-		fmt.Println("%#v", provider.Auth)
+		//		fmt.Println("%#v", provider.Auth)
 		switch {
 		case provider.Auth.NTLM != nil:
-			//			username :=
 
-			// add additional auth methods here
+			userSecretRef := provider.Auth.NTLM.UserName
+			userSecret, err := w.getStoreSecret(ctx, userSecretRef)
+			if err != nil {
+				return nil, err
+			}
+			username := string(userSecret.Data[userSecretRef.Key])
+
+			PasswordSecretRef := provider.Auth.NTLM.Password
+			PasswordSecret, err := w.getStoreSecret(ctx, PasswordSecretRef)
+			if err != nil {
+				return nil, err
+			}
+			password := string(PasswordSecret.Data[PasswordSecretRef.Key])
+
+			req.SetBasicAuth(username, password)
 		}
 	}
-
-	qDump, err := httputil.DumpRequestOut(req, true)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("REQUEST:\n%s", string(reqDump))
 
 	// perform request and check statuscode of response
 	resp, err := w.HTTP.Do(req)

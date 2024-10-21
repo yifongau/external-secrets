@@ -18,7 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
-	esmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
 )
 
 type Spec struct {
@@ -71,14 +70,15 @@ type Spec struct {
 type AuthorizationProtocol struct {
 	// NTLMProtocol configures the store to use NTLM for auth
 	// +optional
-	NTLM *NTLMProtocol `json:"ntlm,omitempty"`
+	NTLM *NTLMProtocol `json:"ntlm"`
 
 	// Define other protocols here
 }
 
+// NTLMProtocol contains the NTLM-specific configuration
 type NTLMProtocol struct {
-	UserName *esmeta.SecretKeySelector `json:"username"`
-	Password *esmeta.SecretKeySelector `json:"password"`
+	UserName SecretKeySelector `json:"usernameSecret"`
+	Password SecretKeySelector `json:"passwordSecret"`
 }
 
 type Result struct {
