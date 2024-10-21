@@ -95,12 +95,3 @@ type Secret struct {
 	// Secret ref to fill in credentials
 	SecretRef esmeta.SecretKeySelector `json:"secretRef"`
 }
-
-type SecretKeySelector struct {
-	// The name of the Secret resource being referred to.
-	Name string `json:"name,omitempty"`
-	// The key where the token is found.
-	Key string `json:"key,omitempty"`
-
-	Namespace *string `json:"namespace,omitempty"`
-}
