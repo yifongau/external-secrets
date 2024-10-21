@@ -258,7 +258,7 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 	// add CA to client if it is there
 	if len(provider.CABundle) > 0 || provider.CAProvider != nil {
 
-		eaCertPool, err := w.GetCACertPool(ctx, provider)
+		caCertPool, err := w.GetCACertPool(ctx, provider)
 		if err != nil {
 			return nil, err
 		}
@@ -275,7 +275,6 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 	// add authentication method if it s there
 	if provider.Auth != nil {
 
-		fmt.Println("%#v", provider.Auth)
 		switch {
 		case provider.Auth.NTLM != nil:
 			fmt.Println("Using ntlm authentication")
