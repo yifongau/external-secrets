@@ -65,6 +65,7 @@ require (
 	dario.cat/mergo v1.0.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.14.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.7.0
+	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358
 	github.com/BeyondTrust/go-client-library-passwordsafe v0.6.0
 	github.com/DelineaXPM/dsv-sdk-go/v2 v2.1.2
 	github.com/DelineaXPM/tss-sdk-go/v2 v2.0.1
@@ -103,7 +104,6 @@ require (
 	cloud.google.com/go/auth v0.9.4 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
 	cloud.google.com/go/compute/metadata v0.5.1 // indirect
-	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/ProtonMail/go-crypto v1.0.0 // indirect
 	github.com/ProtonMail/go-mime v0.0.0-20230322103455-7d82a3887f2f // indirect
 	github.com/ProtonMail/gopenpgp/v2 v2.7.5 // indirect
@@ -138,8 +138,6 @@ require (
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/lestrrat-go/httprc v1.0.6 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
-	github.com/pborman/uuid v1.2.1 // indirect
-	github.com/reflect/reflect-go v0.0.0-20180214185235-25ec44d5a1bf // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
@@ -155,7 +153,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/ghodss/yaml.v1 v1.0.0 // indirect
-	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
