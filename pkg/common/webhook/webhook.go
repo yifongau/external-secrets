@@ -201,7 +201,6 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 	// add explicit credentials for specified auth protocols
 	// any Auth headers set here will overwrite manually set Auth in provider.Headers
 	if provider.Auth != nil {
-
 		switch {
 		case provider.Auth.NTLM != nil:
 
@@ -257,7 +256,6 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 
 	// add CA to client if it is there
 	if len(provider.CABundle) > 0 || provider.CAProvider != nil {
-
 		caCertPool, err := w.GetCACertPool(ctx, provider)
 		if err != nil {
 			return nil, err
@@ -270,11 +268,9 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 		}
 
 		client.Transport = &http.Transport{TLSClientConfig: tlsConf}
-
 	}
 	// add authentication method if it s there
 	if provider.Auth != nil {
-
 		switch {
 		case provider.Auth.NTLM != nil:
 			fmt.Println("Using ntlm authentication")
@@ -288,7 +284,6 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 
 			// add additional auth methods here
 		}
-
 	}
 
 	// return client with all add-ons

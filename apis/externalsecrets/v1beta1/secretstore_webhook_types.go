@@ -35,7 +35,7 @@ type WebhookProvider struct {
 
 	// Auth specifies a authorization protocol. Only one protocol may be set.
 	// +optional
-	Auth *AuthorizationProtocol `json:"auth, omitempty"`
+	Auth *AuthorizationProtocol `json:"auth,omitempty"`
 
 	// Body
 	// +optional
@@ -76,7 +76,7 @@ type AuthorizationProtocol struct {
 	// Define other protocols here
 }
 
-// NTLMProtocol contains the NTLM-specific configuration
+// NTLMProtocol contains the NTLM-specific configuration.
 type NTLMProtocol struct {
 	UserName esmeta.SecretKeySelector `json:"usernameSecret"`
 	Password esmeta.SecretKeySelector `json:"passwordSecret"`

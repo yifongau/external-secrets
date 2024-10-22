@@ -4,7 +4,7 @@ External Secrets Operator can integrate with simple web apis by specifying the e
 
 ### Example
 
-First, create a SecretStore with a webhook backend.  We'll use a static user/password `root`:
+First, create a SecretStore with a webhook backend, setting a basic authorization header using `webhook.headers.Authorization`.  We'll use a static user/password `root`:
 
 ```yaml
 {% raw %}
@@ -69,7 +69,43 @@ data:
 
 #### Limitations
 
-Webhook does not support authorization, other than what can be sent by generating http headers
+Webhook also supports using NTLM for authorization:
+
+```yaml
+{% raw %}
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore
+metadata:
+  name: webhook-backend
+spec:
+  provider:
+    webhook:
+      url: "http://httpbin.org/get?parameter={{ .remoteRef.key }}"
+      result:
+        jsonPath: "$.args.parameter"
+      auth:
+        ntlm:
+            usernameSecret:
+              name: webhook-credentials
+              key: username
+              namespace: externalsecrets
+            passwordSecret:
+              name: webhook-credentials
+              key: password
+              namespace: externalsecrets
+{%- endraw %}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-credentials
+  namespace: externalsecrets
+data:
+  username: dGVzdA== # "test"
+  password: dGVzdA== # "test"
+```
+
+
 
 !!! note
       If a webhook endpoint for a given `ExternalSecret` returns a 404 status code, the secret is considered to have been deleted.  This will trigger the `deletionPolicy` set on the `ExternalSecret`.
@@ -124,4 +160,4 @@ spec:
 ```
 
 ### Webhook as generators
-You can also leverage webhooks as generators, following the same syntax. The only difference is that the webhook generator needs its source secrets to be labeled, as opposed to webhook secretstores. Please see the [generator-webhook](../api/generator/webhook.md) documentation for more information. 
+You can also leverage webhooks as generators, following the same syntax. The only difference is that the webhook generator needs its source secrets to be labeled, as opposed to webhook secretstores. Please see the [generator-webhook](../api/generator/webhook.md) documentation for more information.
