@@ -1,4 +1,7 @@
 trigger:
+  branches:
+    include:
+    - feat/generic-webhook-ntlm-auth
   tags:
     include:
     - 'v*'
@@ -9,13 +12,14 @@ resources:
     type: git
     name: Stater/devops-pipelines
 
-stages:
-- stage: build and push docker image
-  jobs:
-  - template: /jobs/build/docker-image.yml@templatesRepo
-    parameters:
-      dockerFilePath: ./Dockerfile.standalone
-      path: stater
-      image: external-secrets-ntlm
-        tag: ${{ parameters.tag }}
-      buildArgs: "--build-arg GOPROXY=http://pr-art.europe.stater.corp/artifactory/gocenter"
+jobs:
+- template: /jobs/build/docker-image.yml@templatesRepo
+  parameters:
+    dockerFilePath: ./Dockerfile.standalone
+    path: stater
+    image: external-secrets-ntlm
+    ${{ if startsWith(variables['Build.SourceBranch'], 'refs/tags/v') }}:
+      tag: ${{ replace(variables['Build.SourceBranch'], 'refs/tags/', '') }}
+    ${{ else }}:
+      tag: "v1.0.0-$(Build.BuildId)"
+    buildArgs: "--build-arg GOPROXY=http://pr-art.europe.stater.corp/artifactory/gocenter"
