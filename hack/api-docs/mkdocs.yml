@@ -7,6 +7,17 @@ edit_uri: ./edit/main/docs/
 remote_branch: gh-pages
 theme:
   name: material
+  palette:
+    - scheme: default
+      media: "(prefers-color-scheme: light)"
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      media: "(prefers-color-scheme: dark)"
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
   features:
     - navigation.tabs
     - navigation.indexes
@@ -57,6 +68,7 @@ nav:
       - "api/generator/index.md"
       - Azure Container Registry: api/generator/acr.md
       - AWS Elastic Container Registry: api/generator/ecr.md
+      - AWS STS Session Token: api/generator/sts.md
       - Google Container Registry: api/generator/gcr.md
       - Vault Dynamic Secret: api/generator/vault.md
       - Password: api/generator/password.md
@@ -125,6 +137,7 @@ nav:
       - Password Depot: provider-passworddepot.md
       - Fortanix: provider/fortanix.md
       - Infisical: provider/infisical.md
+      - Previder: provider/previder.md
   - Examples:
       - FluxCD: examples/gitops-using-fluxcd.md
       - Anchore Engine: examples/anchore-engine-credentials.md

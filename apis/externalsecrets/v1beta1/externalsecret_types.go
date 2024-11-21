@@ -342,8 +342,10 @@ type ExternalSecretSpec struct {
 	// +optional
 	Target ExternalSecretTarget `json:"target,omitempty"`
 
-	// RefreshInterval is the amount of time before the values are read again from the SecretStore provider
+	// RefreshInterval is the amount of time before the values are read again from the SecretStore provider,
+	// specified as Golang Duration strings.
 	// Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
+	// Example values: "1h", "2h30m", "5d", "10s"
 	// May be set to zero to fetch and create it once. Defaults to 1h.
 	// +kubebuilder:default="1h"
 	RefreshInterval *metav1.Duration `json:"refreshInterval,omitempty"`
@@ -454,7 +456,7 @@ type ExternalSecretStatus struct {
 // ExternalSecret is the Schema for the external-secrets API.
 // +kubebuilder:subresource:status
 // +kubebuilder:metadata:labels="external-secrets.io/component=controller"
-// +kubebuilder:resource:scope=Namespaced,categories={externalsecrets},shortName=es
+// +kubebuilder:resource:scope=Namespaced,categories={external-secrets},shortName=es
 // +kubebuilder:printcolumn:name="Store",type=string,JSONPath=`.spec.secretStoreRef.name`
 // +kubebuilder:printcolumn:name="Refresh Interval",type=string,JSONPath=`.spec.refreshInterval`
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`

@@ -33,7 +33,7 @@ We want to cover the following cases:
 The following table describes the stability level of each provider and who's responsible.
 
 | Provider                                                                                                   | Stability |                                                                                                                                                                              Maintainer |
-|------------------------------------------------------------------------------------------------------------| :-------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
+|------------------------------------------------------------------------------------------------------------|:---------:|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
 | [AWS Secrets Manager](https://external-secrets.io/latest/provider/aws-secrets-manager/)                    |  stable   |                                                                                                                                 [external-secrets](https://github.com/external-secrets) |
 | [AWS Parameter Store](https://external-secrets.io/latest/provider/aws-parameter-store/)                    |  stable   |                                                                                                                                 [external-secrets](https://github.com/external-secrets) |
 | [Hashicorp Vault](https://external-secrets.io/latest/provider/hashicorp-vault/)                            |  stable   |                                                                                                                                 [external-secrets](https://github.com/external-secrets) |
@@ -45,7 +45,7 @@ The following table describes the stability level of each provider and who's res
 | [GitLab Variables](https://external-secrets.io/latest/provider/gitlab-variables/)                          |   alpha   |                                                                                                                                                  [@Jabray5](https://github.com/Jabray5) |
 | Alibaba Cloud KMS                                                                                          |   alpha   |                                                                                                                                          [@ElsaChelala](https://github.com/ElsaChelala) |
 | [Oracle Vault](https://external-secrets.io/latest/provider/oracle-vault)                                   |   alpha   |                                                                                                 [@KianTigger](https://github.com/KianTigger) [@EladGabay](https://github.com/EladGabay) |
-| [Akeyless](https://external-secrets.io/latest/provider/akeyless)                                           |   alpha   |                                                                                                                                    [@renanaAkeyless](https://github.com/renanaAkeyless) |
+| [Akeyless](https://external-secrets.io/latest/provider/akeyless)                                           |  stable   |                                                                                                                                 [external-secrets](https://github.com/external-secrets) |
 | [1Password](https://external-secrets.io/latest/provider/1password-automation)                              |   alpha   |                                                                                       [@SimSpaceCorp](https://github.com/Simspace) [@snarlysodboxer](https://github.com/snarlysodboxer) |
 | [Generic Webhook](https://external-secrets.io/latest/provider/webhook)                                     |   alpha   |                                                                                                                                                  [@willemm](https://github.com/willemm) |
 | [senhasegura DevOps Secrets Management (DSM)](https://external-secrets.io/latest/provider/senhasegura-dsm) |   alpha   |                                                                                                                                                    [@lfraga](https://github.com/lfraga) |
@@ -61,13 +61,14 @@ The following table describes the stability level of each provider and who's res
 | [Infisical](https://external-secrets.io/latest/provider/infisical)                                         |   alpha   |                                                                                                                                              [@akhilmhdh](https://github.com/akhilmhdh) |
 | [Device42](https://external-secrets.io/latest/provider/device42)                                           |   alpha   |                                                                                                                                                                                         |
 | [Bitwarden Secrets Manager](https://external-secrets.io/latest/provider/bitwarden-secrets-manager)         |   alpha   |                                                                                                                                                  [@skarlso](https://github.com/Skarlso) |
+| [Previder](https://external-secrets.io/latest/provider/previder)                                           |  stable   |                                                                                                                                                [@previder](https://github.com/previder) |
 
 ## Provider Feature Support
 
 The following table show the support for features across different providers.
 
 | Provider                  | find by name | find by tags | metadataPolicy Fetch | referent authentication | store validation | push secret | DeletionPolicy Merge/Delete |
-| ------------------------- | :----------: | :----------: | :------------------: | :---------------------: | :--------------: | :---------: | :-------------------------: |
+|---------------------------| :----------: | :----------: | :------------------: | :---------------------: | :--------------: |:-----------:|:---------------------------:|
 | AWS Secrets Manager       |      x       |      x       |          x           |            x            |        x         |      x      |              x              |
 | AWS Parameter Store       |      x       |      x       |          x           |            x            |        x         |      x      |              x              |
 | Hashicorp Vault           |      x       |      x       |          x           |            x            |        x         |      x      |              x              |
@@ -79,7 +80,7 @@ The following table show the support for features across different providers.
 | GitLab Variables          |      x       |      x       |                      |                         |        x         |             |                             |
 | Alibaba Cloud KMS         |              |              |                      |                         |        x         |             |                             |
 | Oracle Vault              |              |              |                      |                         |        x         |             |                             |
-| Akeyless                  |      x       |      x       |                      |                         |        x         |             |                             |
+| Akeyless                  |      x       |      x       |                      |            x            |        x         |      x      |              x              |
 | 1Password                 |      x       |              |                      |                         |        x         |      x      |              x              |
 | Generic Webhook           |              |              |                      |                         |                  |             |              x              |
 | senhasegura DSM           |              |              |                      |                         |        x         |             |                             |
@@ -95,6 +96,7 @@ The following table show the support for features across different providers.
 | Infisical                 |      x       |              |                      |            x            |        x         |             |                             |
 | Device42                  |              |              |                      |                         |        x         |             |                             |
 | Bitwarden Secrets Manager |      x       |              |                      |                         |        x         |      x      |              x              |
+| Previder                  |      x       |              |                      |                         |        x         |             |                             |
 
 ## Support Policy
 

@@ -4,7 +4,7 @@ External Secrets Operator can integrate with simple web apis by specifying the e
 
 ### Example
 
-First, create a SecretStore with a webhook backend, setting a basic authorization header using `webhook.headers.Authorization`.  We'll use a static user/password `root`:
+First, create a SecretStore with a webhook backend.  We'll use a static user/password `test`:
 
 ```yaml
 {% raw %}

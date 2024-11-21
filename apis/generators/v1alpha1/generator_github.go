@@ -25,6 +25,11 @@ type GithubAccessTokenSpec struct {
 	URL       string `json:"url,omitempty"`
 	AppID     string `json:"appID"`
 	InstallID string `json:"installID"`
+	// List of repositories the token will have access to. If omitted, defaults to all repositories the GitHub App
+	// is installed to.
+	Repositories []string `json:"repositories,omitempty"`
+	// Map of permissions the token will have. If omitted, defaults to all permissions the GitHub App has.
+	Permissions map[string]string `json:"permissions,omitempty"`
 	// Auth configures how ESO authenticates with a Github instance.
 	Auth GithubAuth `json:"auth"`
 }
@@ -42,7 +47,7 @@ type GithubSecretRef struct {
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
 // +kubebuilder:metadata:labels="external-secrets.io/component=controller"
-// +kubebuilder:resource:scope=Namespaced,categories={githubaccesstoken},shortName=githubaccesstoken
+// +kubebuilder:resource:scope=Namespaced,categories={external-secrets, external-secrets-generators},shortName=githubaccesstoken
 type GithubAccessToken struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
