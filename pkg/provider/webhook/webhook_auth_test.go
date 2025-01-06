@@ -23,20 +23,23 @@ func TestWebhookAuthentication(t *testing.T) {
 // functions needed for simulating client request
 //GetSecret(ctx context.Context, ref esv1beta1.ExternalSecretDataRemoteRef)
 //GetHTTPClient(ctx context.Context, provider *Spec) <- method on w webhook
+//GetWebhookData
 
 // run testcases (pass requests to handlers here)
 func runAuthTestCase() int {
 
-	// handler functions (add new auth methods here)
+	// servemux  (add handling of auth methods here)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/BasicAuth", func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Mocking webhook authentication using BasicAuth")
 	})
 
+	// testserver
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	// testing the testserver
+	req, err := http.NewRequest(http.MethodGet, server.URL+"/BasicAuth", nil)
 	if err != nil {
 		fmt.Printf("client: could not  create request %s\n", err)
 	}
@@ -51,7 +54,7 @@ func runAuthTestCase() int {
 		fmt.Printf("server: could not read request body: %s\n", err)
 	}
 
-	fmt.Printf(reqBody)
+	fmt.Printf(string(reqBody))
 
-	return 200
+	return res.StatusCode
 }
