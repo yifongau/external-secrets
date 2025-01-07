@@ -47,6 +47,7 @@ type args struct {
 	JSONPath   string `json:"jsonpath,omitempty"`
 	Response   string `json:"response,omitempty"`
 	StatusCode int    `json:"statuscode,omitempty"`
+	AuthMethod string `json:"authmethod,omitempty"`
 }
 
 type want struct {
