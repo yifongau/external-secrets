@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Azure/go-ntlmssp"
+	//"github.com/Azure/go-ntlmssp"
 
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
-	//"github.com/vadimi/go-http-ntlm/v2"
+	"github.com/vadimi/go-http-ntlm/v2"
 	"github.com/vadimi/go-ntlm/ntlm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,7 +24,7 @@ type mockAuthPackage struct {
 }
 
 type mockAuthRequest func(url string, testCase mockAuthTestCase, t *testing.T) string
-type mockAuthHandler func(secret string, validCreds creds, t *testing.T) http.HandlerFunc
+type mockAuthHandler func(secret string, validCreds creds, session ntlm.ServerSession, t *testing.T) http.HandlerFunc
 type mockAuthTestCase struct {
 	Creds    creds
 	Expected string
@@ -38,9 +38,9 @@ type creds struct {
 func TestWebhookAuth(t *testing.T) {
 
 	// testing data
-	validCreds := creds{"correctuser", "correctpassword"}
-	invalidCreds := creds{"incorrectuser", "incorrectpassword"}
-	secret := "thisIsTheSecret"
+	validCreds := creds{"correctuser123", "correctpassword123"}
+	invalidCreds := creds{"incorrectuser123", "incorrectpassword123"}
+	secret := "secret123"
 
 	// define test cases
 	authTestCases := []mockAuthTestCase{
@@ -54,11 +54,15 @@ func TestWebhookAuth(t *testing.T) {
 		"NTLM":      {ntlmAuthRequest, ntlmAuthHandler, authTestCases},
 	}
 
+	//create session which acts as DC
+	session, _ := ntlm.CreateServerSession(ntlm.Version2, ntlm.ConnectionlessMode)
+	session.SetUserInfo(validCreds.UserName, validCreds.Password, "")
+
 	// start test server with mux
 	mux := http.NewServeMux()
 	for name, mockAuthPackage := range mockAuthPackages {
 		endpoint := "/" + name
-		mux.HandleFunc(endpoint, mockAuthPackage.Handler(secret, validCreds, t))
+		mux.HandleFunc(endpoint, mockAuthPackage.Handler(secret, validCreds, session, t))
 	}
 	authTestServer := httptest.NewServer(mux)
 	defer authTestServer.Close()
@@ -77,7 +81,7 @@ func TestWebhookAuth(t *testing.T) {
 	}
 }
 
-func basicAuthHandler(secret string, validCreds creds, t *testing.T) http.HandlerFunc {
+func basicAuthHandler(secret string, validCreds creds, session ntlm.ServerSession, t *testing.T) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		validCredsString := b64.StdEncoding.EncodeToString([]byte(validCreds.UserName + ":" + validCreds.Password))
 		receivedCredsString := r.Header.Get("Authorization")
@@ -96,22 +100,21 @@ func basicAuthHandler(secret string, validCreds creds, t *testing.T) http.Handle
 	}
 }
 
-func ntlmAuthHandler(secret string, validCreds creds, t *testing.T) http.HandlerFunc {
+func ntlmAuthHandler(secret string, validCreds creds, session ntlm.ServerSession, t *testing.T) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		// create session which acts as DC
+		/* create session which acts as DC
 		session, _ := ntlm.CreateServerSession(ntlm.Version2, ntlm.ConnectionlessMode)
-		session.SetUserInfo(validCreds.UserName, validCreds.Password, "")
+		session.SetUserInfo(validCreds.UserName, validCreds.Password, "")*/
+		/*
+			for name, _ := range r.Header {
+				t.Log(name)
 
-		for name, values := range r.Header {
-			for _, value := range values {
-				t.Log(name + "//" + value)
-			}
-		}
+			}*/
 
-		receivedCredsString := r.Header.Get("NTLM")
-		t.Log(receivedCredsString)
-		//receivedCredsString := r.Header.Get("Authorization")
+		receivedCredsString := r.Header.Get("Authorization")
+		//	t.Log(receivedCredsString)
+
 		if receivedCredsString == "" {
 			w.Write([]byte("No Authorization header"))
 			return
@@ -124,6 +127,10 @@ func ntlmAuthHandler(secret string, validCreds creds, t *testing.T) http.Handler
 			err = session.ProcessAuthenticateMessage(auth)
 			if err != nil {
 				t.Errorf("Could not process authenticate message: %s\n", err)
+				return
+			} else {
+				w.Write([]byte(secret + "itworksbrah"))
+				//t.Log(receivedCredsString)
 				return
 			}
 		} else {
@@ -233,15 +240,24 @@ func ntlmAuthRequest(url string, testCase mockAuthTestCase, t *testing.T) string
 
 		return string(resp)
 	*/
-	client := &http.Client{
-		Transport: ntlmssp.Negotiator{
-			RoundTripper: &http.Transport{},
+	client := http.Client{
+		Transport: &httpntlm.NtlmTransport{
+			Domain:   "",
+			User:     testCase.Creds.UserName,
+			Password: testCase.Creds.Password,
+			// Configure RoundTripper if necessary, otherwise DefaultTransport is used
+			RoundTripper: &http.Transport{
+				// provide tls config
+				//		TLSClientConfig: &tls.Config{},
+				// other properties RoundTripper, see http.DefaultTransport
+			},
 		},
 	}
 
 	req, _ := http.NewRequest("Get", url, nil)
 	req.SetBasicAuth(testCase.Creds.UserName, testCase.Creds.Password)
-	t.Log(req.Header.Get("Authorization"))
+	//t.Log(req.Header.Get("Authorization"))
+
 	res, _ := client.Do(req)
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
