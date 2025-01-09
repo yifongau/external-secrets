@@ -11,20 +11,18 @@ import (
 
 	//"github.com/Azure/go-ntlmssp"
 
+	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	"github.com/vadimi/go-http-ntlm/v2"
 	"github.com/vadimi/go-ntlm/ntlm"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 )
 
 // type mockAuthHandler func(secret string, validCreds creds, session ntlm.ServerSession, t *testing.T) http.HandlerFunc
 type mockAuthTestPackage struct {
 	ServerCreds   mockCreds
 	ServerSecret  string
-	TestContext   mockAuthTestContext
-	TestRequest   mockAuthTestRequest
+	TestServer    mockAuthTestServer
+	Request       mockAuthRequest
 	LoginAttempts []mockLoginAttempt
 }
 
@@ -38,14 +36,12 @@ type mockCreds struct {
 	Password string
 }
 
-type mockAuthTestContext func(
+type mockAuthTestServer func(
 	serverCreds mockCreds,
 	serverSecret string,
-	testRequest mockAuthTestRequest,
-	loginAttempts []mockLoginAttempt,
-	t *testing.T)
+	t *testing.T) *httptest.Server
 
-type mockAuthTestRequest func(
+type mockAuthRequest func(
 	url string,
 	creds mockCreds,
 	t *testing.T) string
@@ -62,18 +58,28 @@ func TestWebhookAuth(t *testing.T) {
 		{invalidCreds, "401"},
 	}
 
-	mockAuthTestPackages := map[string]mockAuthTestPackage{
-		"BasicAuth": {validCreds, secret, basicAuthContext, basicAuthRequest, loginAttempts},
-		"NTLM":      {validCreds, secret, ntlmContext, ntlmRequest, loginAttempts},
+	testPackages := map[string]mockAuthTestPackage{
+		"BasicAuth": {validCreds, secret, basicAuthServer, basicAuthRequest, loginAttempts},
+		"NTLM":      {validCreds, secret, ntlmServer, ntlmRequest, loginAttempts},
 	}
 
 	// execute test cases
-	for _, p := range mockAuthTestPackages {
-		p.TestContext(p.ServerCreds, p.ServerSecret, p.TestRequest, p.LoginAttempts, t)
+	for _, p := range testPackages {
+		server := p.TestServer(p.ServerCreds, p.ServerSecret, t)
+		defer server.Close()
+
+		for _, loginAttempt := range loginAttempts {
+			result := p.Request(server.URL, loginAttempt.Creds, t)
+			expect := loginAttempt.Expect
+			if result != expect {
+				t.Errorf("Test failed. Result: '%s' / Expected:  '%s'", result, expect)
+			}
+		}
+
 	}
 }
 
-func ntlmContext(creds mockCreds, secret string, testRequest mockAuthTestRequest, loginAttempts []mockLoginAttempt, t *testing.T) {
+func ntlmServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 
 	session, _ := ntlm.CreateServerSession(ntlm.Version2, ntlm.ConnectionlessMode)
 	session.SetUserInfo(creds.UserName, creds.Password, "")
@@ -98,24 +104,15 @@ func ntlmContext(creds mockCreds, secret string, testRequest mockAuthTestRequest
 			} else { // IS AUTHENTICATE_MESSAGE, authenticate
 				err = session.ProcessAuthenticateMessage(auth)
 				if err == nil {
-					w.Write([]byte(secret))
+					w.Write([]byte(secret + "hello"))
 				} else {
-					w.Write([]byte("401"))
+					w.Write([]byte("401" + "hello"))
 				}
 
 			}
 		}
 	}))
-	defer server.Close()
-
-	for _, loginAttempt := range loginAttempts {
-		result := testRequest(server.URL, loginAttempt.Creds, t)
-		expect := loginAttempt.Expect
-
-		if result != expect {
-			t.Errorf("Test failed. Result: '%s' / Expected:  '%s'", result, expect)
-		}
-	}
+	return server
 
 }
 
@@ -147,7 +144,7 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 	return string(body)
 }
 
-func basicAuthContext(creds mockCreds, secret string, testRequest mockAuthTestRequest, loginAttempts []mockLoginAttempt, t *testing.T) {
+func basicAuthServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		validAuthString := b64.StdEncoding.EncodeToString([]byte(creds.UserName + ":" + creds.Password))
@@ -165,15 +162,7 @@ func basicAuthContext(creds mockCreds, secret string, testRequest mockAuthTestRe
 		}
 	}))
 
-	defer server.Close()
-
-	for _, loginAttempt := range loginAttempts {
-		result := testRequest(server.URL, loginAttempt.Creds, t)
-		expect := loginAttempt.Expect
-		if result != expect {
-			t.Errorf("Test failed. Result: '%s' / Expected:  '%s'", result, expect)
-		}
-	}
+	return server
 
 }
 
