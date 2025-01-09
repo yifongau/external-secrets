@@ -1,7 +1,6 @@
 package webhook
 
 import (
-	"context"
 	b64 "encoding/base64"
 	"io"
 	"net/http"
@@ -11,76 +10,133 @@ import (
 
 	//"github.com/Azure/go-ntlmssp"
 
-	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	"github.com/vadimi/go-http-ntlm/v2"
 	"github.com/vadimi/go-ntlm/ntlm"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type mockAuthPackage struct {
-	Request   mockAuthRequest
-	Handler   mockAuthHandler
-	TestCases []mockAuthTestCase
+// type mockAuthHandler func(secret string, validCreds creds, session ntlm.ServerSession, t *testing.T) http.HandlerFunc
+type mockAuthTestPackage struct {
+	ServerCreds   mockCreds
+	ServerSecret  string
+	TestContext   mockAuthTestContext
+	TestRequest   mockAuthTestRequest
+	LoginAttempts []mockLoginAttempt
 }
 
-type mockAuthRequest func(url string, testCase mockAuthTestCase, t *testing.T) string
-type mockAuthHandler func(secret string, validCreds creds, session ntlm.ServerSession, t *testing.T) http.HandlerFunc
-type mockAuthTestCase struct {
-	Creds    creds
-	Expected string
+type mockLoginAttempt struct {
+	Creds  mockCreds
+	Expect string
 }
 
-type creds struct {
+type mockCreds struct {
 	UserName string
 	Password string
 }
 
+type mockAuthTestContext func(
+	serverCreds mockCreds,
+	serverSecret string,
+	testRequest mockAuthTestRequest,
+	loginAttempts []mockLoginAttempt,
+	t *testing.T)
+
+type mockAuthTestRequest func(
+	url string,
+	creds mockCreds,
+	t *testing.T) string
+
 func TestWebhookAuth(t *testing.T) {
 
-	// testing data
-	validCreds := creds{"correctuser123", "correctpassword123"}
-	invalidCreds := creds{"incorrectuser123", "incorrectpassword123"}
+	// define testing packages
+	validCreds := mockCreds{"correctuser123", "correctpassword123"}
+	invalidCreds := mockCreds{"incorrectuser123", "incorrectpassword123"}
 	secret := "secret123"
 
-	// define test cases
-	authTestCases := []mockAuthTestCase{
+	loginAttempts := []mockLoginAttempt{
 		{validCreds, secret},
 		{invalidCreds, "401"},
 	}
 
-	// define auth packages
-	mockAuthPackages := map[string]mockAuthPackage{
-		"BasicAuth": {basicAuthRequest, basicAuthHandler, authTestCases},
-		"NTLM":      {ntlmAuthRequest, ntlmAuthHandler, authTestCases},
+	mockAuthTestPackages := map[string]mockAuthTestPackage{
+		//	"BasicAuth": {basicAuthRequest, basicAuthHandler, authTestCases},
+		"NTLM": {validCreds, secret, ntlmContext, ntlmRequest, loginAttempts},
 	}
 
-	//create session which acts as DC
-	session, _ := ntlm.CreateServerSession(ntlm.Version2, ntlm.ConnectionlessMode)
-	session.SetUserInfo(validCreds.UserName, validCreds.Password, "")
-
-	// start test server with mux
-	mux := http.NewServeMux()
-	for name, mockAuthPackage := range mockAuthPackages {
-		endpoint := "/" + name
-		mux.HandleFunc(endpoint, mockAuthPackage.Handler(secret, validCreds, session, t))
-	}
-	authTestServer := httptest.NewServer(mux)
-	defer authTestServer.Close()
-
-	// execute tests
-	for name, mockAuthPackage := range mockAuthPackages {
-		url := authTestServer.URL + "/" + name
-		for _, mockAuthTestCase := range mockAuthPackage.TestCases {
-			result := mockAuthPackage.Request(url, mockAuthTestCase, t)
-			expected := mockAuthTestCase.Expected
-			if result != expected {
-				t.Errorf("got %q, expected %q", result, expected)
-			}
-
-		}
+	for _, p := range mockAuthTestPackages {
+		p.TestContext(p.ServerCreds, p.ServerSecret, p.TestRequest, p.LoginAttempts, t)
 	}
 }
 
+func ntlmContext(creds mockCreds, secret string, testRequest mockAuthTestRequest, loginAttempts []mockLoginAttempt, t *testing.T) {
+
+	session, _ := ntlm.CreateServerSession(ntlm.Version2, ntlm.ConnectionlessMode)
+	session.SetUserInfo(creds.UserName, creds.Password, "")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqAuthString := r.Header.Get("Authorization")
+
+		if reqAuthString == "" {
+			w.Write([]byte("Empty Authorization header"))
+		} else {
+			ntlmChallengeString := strings.Replace(reqAuthString, "NTLM ", "", -1)
+			authenticateBytes, _ := b64.StdEncoding.DecodeString(ntlmChallengeString)
+			auth, err := ntlm.ParseAuthenticateMessage(authenticateBytes, 2)
+			if err == nil {
+				err = session.ProcessAuthenticateMessage(auth)
+				if err == nil {
+					w.Write([]byte(secret))
+				} else {
+					w.Write([]byte("401"))
+				}
+			} else { // NEGOTIATE_MESSAGE, generate CHALLENGE_MESSESAGE
+				challenge, _ := session.GenerateChallengeMessage()
+				w.Header().Add("WWW-Authenticate", `Basic realm="test"`)
+				w.Header().Add("WWW-Authenticate", "NTLM "+b64.StdEncoding.EncodeToString(challenge.Bytes()))
+				w.WriteHeader(401)
+			}
+		}
+	}))
+	defer server.Close()
+
+	for _, loginAttempt := range loginAttempts {
+		result := testRequest(server.URL, loginAttempt.Creds, t)
+		expect := loginAttempt.Expect
+		if result != expect {
+			t.Errorf("Test failed. Result: '%s' / Expected:  '%s'", result, expect)
+		}
+	}
+
+}
+
+func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
+
+	client := http.Client{
+		Transport: &httpntlm.NtlmTransport{
+			Domain:   "",
+			User:     creds.UserName,
+			Password: creds.Password,
+			// Configure RoundTripper if necessary, otherwise DefaultTransport is used
+			RoundTripper: &http.Transport{
+				// provide tls config
+				//		TLSClientConfig: &tls.Config{},
+				// other properties RoundTripper, see http.DefaultTransport
+			},
+		},
+	}
+
+	req, _ := http.NewRequest("Get", url, nil)
+	req.SetBasicAuth(creds.UserName, creds.Password)
+	//t.Log(req.Header.Get("Authorization"))
+
+	res, _ := client.Do(req)
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Errorf("Error")
+	}
+	return string(body)
+}
+
+/*
 func basicAuthHandler(secret string, validCreds creds, session ntlm.ServerSession, t *testing.T) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		validCredsString := b64.StdEncoding.EncodeToString([]byte(validCreds.UserName + ":" + validCreds.Password))
@@ -100,17 +156,10 @@ func basicAuthHandler(secret string, validCreds creds, session ntlm.ServerSessio
 	}
 }
 
+
+
 func ntlmAuthHandler(secret string, validCreds creds, session ntlm.ServerSession, t *testing.T) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		/* create session which acts as DC
-		session, _ := ntlm.CreateServerSession(ntlm.Version2, ntlm.ConnectionlessMode)
-		session.SetUserInfo(validCreds.UserName, validCreds.Password, "")*/
-		/*
-			for name, _ := range r.Header {
-				t.Log(name)
-
-			}*/
 
 		receivedCredsString := r.Header.Get("Authorization")
 		//	t.Log(receivedCredsString)
@@ -141,6 +190,7 @@ func ntlmAuthHandler(secret string, validCreds creds, session ntlm.ServerSession
 		}
 	}
 }
+
 
 func basicAuthRequest(url string, testCase mockAuthTestCase, t *testing.T) string {
 	creds := testCase.Creds
@@ -195,7 +245,7 @@ func ntlmAuthRequest(url string, testCase mockAuthTestCase, t *testing.T) string
 	//	credsEnc := b64.StdEncoding.EncodeToString([]byte(creds.UserName + ":" + creds.Password))
 
 	// create ClusterSecretStore
-	/*
+
 		testStore := &esv1beta1.ClusterSecretStore{
 			TypeMeta: metav1.TypeMeta{
 				Kind: "ClusterSecretStore",
@@ -239,7 +289,7 @@ func ntlmAuthRequest(url string, testCase mockAuthTestCase, t *testing.T) string
 		}
 
 		return string(resp)
-	*/
+
 	client := http.Client{
 		Transport: &httpntlm.NtlmTransport{
 			Domain:   "",
@@ -266,3 +316,4 @@ func ntlmAuthRequest(url string, testCase mockAuthTestCase, t *testing.T) string
 	return string(body)
 
 }
+*/
