@@ -3,7 +3,6 @@ package webhook
 import (
 	"context"
 	b64 "encoding/base64"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,12 +11,12 @@ import (
 	//"github.com/Azure/go-ntlmssp"
 
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
+	esmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
 	"github.com/vadimi/go-http-ntlm/v2"
 	"github.com/vadimi/go-ntlm/ntlm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// type mockAuthHandler func(secret string, validCreds creds, session ntlm.ServerSession, t *testing.T) http.HandlerFunc
 type mockAuthTestPackage struct {
 	ServerCreds   mockCreds
 	ServerSecret  string
@@ -68,7 +67,7 @@ func TestWebhookAuth(t *testing.T) {
 		server := p.TestServer(p.ServerCreds, p.ServerSecret, t)
 		defer server.Close()
 
-		for _, loginAttempt := range loginAttempts {
+		for _, loginAttempt := range p.LoginAttempts {
 			result := p.Request(server.URL, loginAttempt.Creds, t)
 			expect := loginAttempt.Expect
 			if result != expect {
@@ -118,24 +117,62 @@ func ntlmServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 
 func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 
-	client := http.Client{
-		Transport: &httpntlm.NtlmTransport{
-			Domain:   "",
-			User:     creds.UserName,
-			Password: creds.Password,
-			// Configure RoundTripper if necessary, otherwise DefaultTransport is used
-			RoundTripper: &http.Transport{
-				// provide tls config
-				//		TLSClientConfig: &tls.Config{},
-				// other properties RoundTripper, see http.DefaultTransport
+	// create ClusterSecretStore
+	testStore := &esv1beta1.ClusterSecretStore{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "ClusterSecretStore",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "webhook-store",
+			Namespace: "default",
+		},
+		Spec: esv1beta1.SecretStoreSpec{
+			Provider: &esv1beta1.SecretStoreProvider{
+				Webhook: &esv1beta1.WebhookProvider{
+					URL: url,
+					Auth: &esv1beta1.AuthorizationProtocol{
+						NTLM: &esv1beta1.NTLMProtocol{
+							UserName: esmeta.SecretKeySelector{},
+							Password: esmeta.SecretKeySelector{},
+						},
+					},
+				},
 			},
 		},
 	}
 
-	req, _ := http.NewRequest("Get", url, nil)
-	req.SetBasicAuth(creds.UserName, creds.Password)
-	//t.Log(req.Header.Get("Authorization"))
+	// create HTTP client from ClusterSecretStore
+	testProv := &Provider{}
+	client, err := testProv.NewClient(context.Background(), testStore, nil, "testnamespace")
+	if err != nil {
+		t.Errorf("Error creating client: %q", err)
+		return "error"
+	}
 
+	// dummy testRef (unused in this test, but required)
+	testRef := esv1beta1.ExternalSecretDataRemoteRef{Key: "dummy"}
+
+	// perform request, exercising GetSecret
+	resp, err := client.GetSecret(context.Background(), testRef)
+	if err != nil {
+		t.Errorf("Error retrieving secret:%s", err)
+	}
+	return string(resp)
+}
+
+/*
+func ntlmSimpleRequest(url string, creds mockCreds, t *testing.T) string {
+
+	client := http.Client{
+		Transport: &httpntlm.NtlmTransport{
+			Domain:       "",
+			User:         creds.UserName,
+			Password:     creds.Password,
+			RoundTripper: &http.Transport{},
+		},
+	}
+
+	req, _ := http.NewRequest("Get", url, nil)
 	res, _ := client.Do(req)
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
@@ -143,6 +180,7 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 	}
 	return string(body)
 }
+*/
 
 func basicAuthServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 
