@@ -3,17 +3,19 @@ package webhook
 import (
 	"context"
 	b64 "encoding/base64"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"strings"
 	"testing"
 
-	//"github.com/Azure/go-ntlmssp"
-
+	"github.com/Azure/go-ntlmssp"
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	esmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
 	"github.com/vadimi/go-http-ntlm/v2"
 	"github.com/vadimi/go-ntlm/ntlm"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -59,7 +61,7 @@ func TestWebhookAuth(t *testing.T) {
 
 	testPackages := map[string]mockAuthTestPackage{
 		"BasicAuth": {validCreds, secret, basicAuthServer, basicAuthRequest, loginAttempts},
-		"NTLM":      {validCreds, secret, ntlmServer, ntlmRequest, loginAttempts},
+		"NTLM":      {validCreds, secret, ntlmServer, ntlmSimpleRequestNew, loginAttempts},
 	}
 
 	// execute test cases
@@ -84,6 +86,23 @@ func ntlmServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 	session.SetUserInfo(creds.UserName, creds.Password, "")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		/*
+			for name, values := range r.Header {
+				t.Log(name, values)
+
+			}
+
+			reqEncoding := r.Header.Get("Accept-Encoding")
+			var reqAuthString string
+			switch reqEncoding {
+			case "gzip":
+				t.Log(reqEncoding)
+				reader, _ := io.ReadAll(r.Body.Header.Get())
+				t.Log(string(reader))
+
+			default:
+				reqAuthString = r.Header.Get("Authorization")
+			}*/
 
 		reqAuthString := r.Header.Get("Authorization")
 		if reqAuthString == "" {
@@ -117,6 +136,36 @@ func ntlmServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 
 func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 
+	testAuthSecretName := "ntlmTestAuthSecret"
+	testNamespace := "default"
+
+	// ntlm clustersecretstore takes credentials from a secret
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: testNamespace,
+			Name:      testAuthSecretName,
+		},
+		Data: map[string][]byte{
+			"userName": []byte(creds.UserName),
+			"password": []byte(creds.Password),
+		},
+	}
+
+	ctx := context.Background()
+	clientSet := fake.NewSimpleClientset()
+	_, err := clientSet.CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// debugging stuff
+	foundSecret, err := clientSet.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("y hello" + string(foundSecret.Data["userName"]))
+
 	// create ClusterSecretStore
 	testStore := &esv1beta1.ClusterSecretStore{
 		TypeMeta: metav1.TypeMeta{
@@ -124,7 +173,7 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "webhook-store",
-			Namespace: "default",
+			Namespace: testNamespace,
 		},
 		Spec: esv1beta1.SecretStoreSpec{
 			Provider: &esv1beta1.SecretStoreProvider{
@@ -132,8 +181,16 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 					URL: url,
 					Auth: &esv1beta1.AuthorizationProtocol{
 						NTLM: &esv1beta1.NTLMProtocol{
-							UserName: esmeta.SecretKeySelector{},
-							Password: esmeta.SecretKeySelector{},
+							UserName: esmeta.SecretKeySelector{
+								Name:      testAuthSecretName,
+								Namespace: &testNamespace,
+								Key:       "userName",
+							},
+							Password: esmeta.SecretKeySelector{
+								Name:      testAuthSecretName,
+								Namespace: &testNamespace,
+								Key:       "password",
+							},
 						},
 					},
 				},
@@ -141,6 +198,9 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 		},
 	}
 
+	//t.Log(testStore)
+	//	secretRef := testStore.Spec.Provider.Webhook.Auth.NTLM.UserName
+	//	t.Log(secretRef)
 	// create HTTP client from ClusterSecretStore
 	testProv := &Provider{}
 	client, err := testProv.NewClient(context.Background(), testStore, nil, "testnamespace")
@@ -149,19 +209,21 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 		return "error"
 	}
 
-	// dummy testRef (unused in this test, but required)
+	//dummy testRef (unused in this test, but required)
 	testRef := esv1beta1.ExternalSecretDataRemoteRef{Key: "dummy"}
 
-	// perform request, exercising GetSecret
+	//perform request, exercising GetSecret
 	resp, err := client.GetSecret(context.Background(), testRef)
 	if err != nil {
 		t.Errorf("Error retrieving secret:%s", err)
 	}
+
 	return string(resp)
+
+	//return "debug"
 }
 
-/*
-func ntlmSimpleRequest(url string, creds mockCreds, t *testing.T) string {
+func ntlmSimpleRequestNew(url string, creds mockCreds, t *testing.T) string {
 
 	client := http.Client{
 		Transport: &httpntlm.NtlmTransport{
@@ -180,7 +242,39 @@ func ntlmSimpleRequest(url string, creds mockCreds, t *testing.T) string {
 	}
 	return string(body)
 }
-*/
+
+func ntlmSimpleRequestOld(url string, creds mockCreds, t *testing.T) string {
+	/*
+		client := http.Client{
+			Transport: &httpntlm.NtlmTransport{
+				Domain:       "",
+				User:         creds.UserName,
+				Password:     creds.Password,
+				RoundTripper: &http.Transport{},
+			},
+		}
+
+		req, _ := http.NewRequest("Get", url, nil)
+		res, _ := client.Do(req)
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Errorf("Error")
+		}*/
+
+	client := &http.Client{
+		Transport: ntlmssp.Negotiator{
+			RoundTripper: &http.Transport{},
+		},
+	}
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.SetBasicAuth(creds.UserName, creds.Password)
+	res, _ := client.Do(req)
+
+	bodyBytes, _ := io.ReadAll(res.Body)
+
+	return string(bodyBytes)
+}
 
 func basicAuthServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 
@@ -247,134 +341,3 @@ func basicAuthRequest(url string, creds mockCreds, t *testing.T) string {
 	return string(resp)
 
 }
-
-/*
-
-
-
-
-func basicAuthRequest(url string, testCase mockAuthTestCase, t *testing.T) string {
-	creds := testCase.Creds
-	credsEnc := b64.StdEncoding.EncodeToString([]byte(creds.UserName + ":" + creds.Password))
-
-	// create ClusterSecretStore
-	testStore := &esv1beta1.ClusterSecretStore{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "ClusterSecretStore",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "webhook-store",
-			Namespace: "default",
-		},
-		Spec: esv1beta1.SecretStoreSpec{
-			Provider: &esv1beta1.SecretStoreProvider{
-				Webhook: &esv1beta1.WebhookProvider{
-					URL: url,
-					Headers: map[string]string{
-						"Authorization": credsEnc,
-					},
-				},
-			},
-		},
-	}
-
-	// create HTTP client from ClusterSecretStore
-	testProv := &Provider{}
-	client, err := testProv.NewClient(context.Background(), testStore, nil, "testnamespace")
-	if err != nil {
-		t.Errorf("Error creating client: \n%q\n%q", testCase, err.Error())
-		return "error"
-	}
-
-	// dummy testRef (unused in this test, but required)
-	testRef := esv1beta1.ExternalSecretDataRemoteRef{
-		Key: "dummy",
-	}
-
-	// perform request, exercising GetSecret
-	resp, err := client.GetSecret(context.Background(), testRef)
-	if err != nil {
-		t.Errorf("Error retrieving secret:\n%s\n%s", testCase, err.Error())
-	}
-
-	return string(resp)
-
-}
-
-func ntlmAuthRequest(url string, testCase mockAuthTestCase, t *testing.T) string {
-	//	creds := testCase.Creds
-	//	credsEnc := b64.StdEncoding.EncodeToString([]byte(creds.UserName + ":" + creds.Password))
-
-	// create ClusterSecretStore
-
-		testStore := &esv1beta1.ClusterSecretStore{
-			TypeMeta: metav1.TypeMeta{
-				Kind: "ClusterSecretStore",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "webhook-store",
-				Namespace: "default",
-			},
-			Spec: esv1beta1.SecretStoreSpec{
-				Provider: &esv1beta1.SecretStoreProvider{
-					Webhook: &esv1beta1.WebhookProvider{
-						URL: url,
-						Auth: &esv1beta1.AuthorizationProtocol{
-							NTLM: &esv1beta1.NTLMProtocol{
-								UserName: esmeta.SecretKeySelector{},
-								Password: esmeta.SecretKeySelector{},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		// create HTTP client from ClusterSecretStore
-		testProv := &Provider{}
-		client, err := testProv.NewClient(context.Background(), testStore, nil, "testnamespace")
-		if err != nil {
-			t.Errorf("Error creating client: \n%q\n%q", testCase, err.Error())
-			return "error"
-		}
-
-		// dummy testRef (unused in this test, but required)
-		testRef := esv1beta1.ExternalSecretDataRemoteRef{
-			Key: "dummy",
-		}
-
-		// perform request, exercising GetSecret
-		resp, err := client.GetSecret(context.Background(), testRef)
-		if err != nil {
-			t.Errorf("Error retrieving secret:\n%s\n%s", testCase, err.Error())
-		}
-
-		return string(resp)
-
-	client := http.Client{
-		Transport: &httpntlm.NtlmTransport{
-			Domain:   "",
-			User:     testCase.Creds.UserName,
-			Password: testCase.Creds.Password,
-			// Configure RoundTripper if necessary, otherwise DefaultTransport is used
-			RoundTripper: &http.Transport{
-				// provide tls config
-				//		TLSClientConfig: &tls.Config{},
-				// other properties RoundTripper, see http.DefaultTransport
-			},
-		},
-	}
-
-	req, _ := http.NewRequest("Get", url, nil)
-	req.SetBasicAuth(testCase.Creds.UserName, testCase.Creds.Password)
-	//t.Log(req.Header.Get("Authorization"))
-
-	res, _ := client.Do(req)
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		t.Errorf("Error")
-	}
-	return string(body)
-
-}
-*/
