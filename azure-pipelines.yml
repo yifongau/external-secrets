@@ -1,7 +1,4 @@
 trigger:
-  branches:
-    include:
-    - feat/generic-webhook-ntlm-auth
   tags:
     include:
     - 'v*'
