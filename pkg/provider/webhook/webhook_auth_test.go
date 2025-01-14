@@ -4,6 +4,7 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"io"
+	//"k8s.io/client-go/kubernetes/scheme"
 	"net/http"
 	"net/http/httptest"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -61,7 +62,7 @@ func TestWebhookAuth(t *testing.T) {
 
 	testPackages := map[string]mockAuthTestPackage{
 		"BasicAuth": {validCreds, secret, basicAuthServer, basicAuthRequest, loginAttempts},
-		"NTLM":      {validCreds, secret, ntlmServer, ntlmSimpleRequestNew, loginAttempts},
+		"NTLM":      {validCreds, secret, ntlmServer, ntlmRequest, loginAttempts},
 	}
 
 	// execute test cases
@@ -139,11 +140,15 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 	testAuthSecretName := "ntlmTestAuthSecret"
 	testNamespace := "default"
 
-	// ntlm clustersecretstore takes credentials from a secret
+	// ntlm clustersecretstore takes credentials from a secret,
+	// so we need to create a fake client that mocks retrieval of fake secret.
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testAuthSecretName,
+			Labels: map[string]string{
+				"external-secrets.io/type": "webhook",
+			},
 		},
 		Data: map[string][]byte{
 			"userName": []byte(creds.UserName),
@@ -151,20 +156,9 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 		},
 	}
 
-	ctx := context.Background()
-	clientSet := fake.NewSimpleClientset()
-	_, err := clientSet.CoreV1().Secrets(secret.Namespace).Create(ctx, secret, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	fakeClient := fake.NewClientBuilder().WithObjects(secret).Build()
 
-	// debugging stuff
-	foundSecret, err := clientSet.CoreV1().Secrets(secret.Namespace).Get(ctx, secret.Name, metav1.GetOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Log("y hello" + string(foundSecret.Data["userName"]))
+	//t.Log("y hello" + string(foundSecret.Data["userName"]))
 
 	// create ClusterSecretStore
 	testStore := &esv1beta1.ClusterSecretStore{
@@ -203,7 +197,7 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 	//	t.Log(secretRef)
 	// create HTTP client from ClusterSecretStore
 	testProv := &Provider{}
-	client, err := testProv.NewClient(context.Background(), testStore, nil, "testnamespace")
+	client, err := testProv.NewClient(context.Background(), testStore, fakeClient, "testnamespace")
 	if err != nil {
 		t.Errorf("Error creating client: %q", err)
 		return "error"
