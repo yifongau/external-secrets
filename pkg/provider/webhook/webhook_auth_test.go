@@ -141,8 +141,8 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 	testNamespace := "default"
 
 	// ntlm clustersecretstore takes credentials from a secret,
-	// so we need to create a fake client that mocks retrieval of fake secret.
-	secret := &corev1.Secret{
+	// so we need to mock k8s-client retrieval of secret.
+	fakeClient := fake.NewClientBuilder().WithObjects(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testNamespace,
 			Name:      testAuthSecretName,
@@ -154,13 +154,8 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 			"userName": []byte(creds.UserName),
 			"password": []byte(creds.Password),
 		},
-	}
+	}).Build()
 
-	fakeClient := fake.NewClientBuilder().WithObjects(secret).Build()
-
-	//t.Log("y hello" + string(foundSecret.Data["userName"]))
-
-	// create ClusterSecretStore
 	testStore := &esv1beta1.ClusterSecretStore{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ClusterSecretStore",
@@ -192,29 +187,20 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 		},
 	}
 
-	//t.Log(testStore)
-	//	secretRef := testStore.Spec.Provider.Webhook.Auth.NTLM.UserName
-	//	t.Log(secretRef)
-	// create HTTP client from ClusterSecretStore
 	testProv := &Provider{}
-	client, err := testProv.NewClient(context.Background(), testStore, fakeClient, "testnamespace")
+	client, err := testProv.NewClient(context.Background(), testStore, fakeClient, testNamespace)
 	if err != nil {
 		t.Errorf("Error creating client: %q", err)
 		return "error"
 	}
 
-	//dummy testRef (unused in this test, but required)
 	testRef := esv1beta1.ExternalSecretDataRemoteRef{Key: "dummy"}
-
-	//perform request, exercising GetSecret
 	resp, err := client.GetSecret(context.Background(), testRef)
 	if err != nil {
 		t.Errorf("Error retrieving secret:%s", err)
 	}
 
 	return string(resp)
-
-	//return "debug"
 }
 
 func ntlmSimpleRequestNew(url string, creds mockCreds, t *testing.T) string {
@@ -324,11 +310,8 @@ func basicAuthRequest(url string, creds mockCreds, t *testing.T) string {
 		return "error"
 	}
 
-	// dummy testRef (unused in this test, but required)
-	testRef := esv1beta1.ExternalSecretDataRemoteRef{Key: "dummy"}
-
 	// perform request, exercising GetSecret
-	resp, err := client.GetSecret(context.Background(), testRef)
+	resp, err := client.GetSecret(context.Background(), esv1beta1.ExternalSecretDataRemoteRef{Key: "dummy"})
 	if err != nil {
 		t.Errorf("Error retrieving secret:%s", err)
 	}

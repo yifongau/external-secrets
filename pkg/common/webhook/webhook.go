@@ -220,6 +220,7 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 
 			// This overwrites auth headers set by providers.headers
 			req.SetBasicAuth(username, password)
+
 		}
 	}
 
