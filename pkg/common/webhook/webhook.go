@@ -27,8 +27,8 @@ import (
 	"net/url"
 	tpl "text/template"
 
-	"github.com/Azure/go-ntlmssp"
 	"github.com/PaesslerAG/jsonpath"
+	"github.com/vadimi/go-http-ntlm/v2"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -198,32 +198,6 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 		req.Header.Add(hKey, hValue)
 	}
 
-	// add explicit credentials for specified auth protocols
-	// any Auth headers set here will overwrite manually set Auth in provider.Headers
-	if provider.Auth != nil {
-		switch {
-		case provider.Auth.NTLM != nil:
-
-			userSecretRef := provider.Auth.NTLM.UserName
-			userSecret, err := w.getStoreSecret(ctx, userSecretRef)
-			if err != nil {
-				return nil, err
-			}
-			username := string(userSecret.Data[userSecretRef.Key])
-
-			PasswordSecretRef := provider.Auth.NTLM.Password
-			PasswordSecret, err := w.getStoreSecret(ctx, PasswordSecretRef)
-			if err != nil {
-				return nil, err
-			}
-			password := string(PasswordSecret.Data[PasswordSecretRef.Key])
-
-			// This overwrites auth headers set by providers.headers
-			req.SetBasicAuth(username, password)
-
-		}
-	}
-
 	// perform request and check statuscode of response
 	resp, err := w.HTTP.Do(req)
 	metrics.ObserveAPICall(constants.ProviderWebhook, constants.CallWebhookHTTPReq, err)
@@ -274,9 +248,27 @@ func (w *Webhook) GetHTTPClient(ctx context.Context, provider *Spec) (*http.Clie
 	if provider.Auth != nil {
 		switch {
 		case provider.Auth.NTLM != nil:
-			fmt.Println("Using ntlm authentication")
+
+			userSecretRef := provider.Auth.NTLM.UserName
+			userSecret, err := w.getStoreSecret(ctx, userSecretRef)
+			if err != nil {
+				return nil, err
+			}
+			username := string(userSecret.Data[userSecretRef.Key])
+
+			PasswordSecretRef := provider.Auth.NTLM.Password
+			PasswordSecret, err := w.getStoreSecret(ctx, PasswordSecretRef)
+			if err != nil {
+				return nil, err
+			}
+			password := string(PasswordSecret.Data[PasswordSecretRef.Key])
+
+			fmt.Println("Webhook Provider: Using ntlm authentication")
 			client.Transport =
-				ntlmssp.Negotiator{ // decorator wraps existing Transport
+				&httpntlm.NtlmTransport{
+					Domain:   "",
+					User:     username,
+					Password: password,
 					RoundTripper: &http.Transport{
 						TLSNextProto: map[string]func(authority string, c *tls.Conn) http.RoundTripper{}, // Needed to disable HTTP/2
 
