@@ -224,7 +224,7 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 
 		}
 	}
-	// perform request and check statuscode of response
+
 	resp, err := w.HTTP.Do(req)
 	metrics.ObserveAPICall(constants.ProviderWebhook, constants.CallWebhookHTTPReq, err)
 	if err != nil {

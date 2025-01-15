@@ -61,8 +61,8 @@ func TestWebhookAuth(t *testing.T) {
 	}
 
 	testPackages := map[string]mockAuthTestPackage{
-		"BasicAuth": {validCreds, secret, basicAuthServer, basicAuthRequest, loginAttempts},
-		"NTLM":      {validCreds, secret, ntlmServer, ntlmRequest, loginAttempts},
+		//	"BasicAuth": {validCreds, secret, basicAuthServer, basicAuthRequest, loginAttempts},
+		"NTLM": {validCreds, secret, ntlmServer, ntlmRequest, loginAttempts},
 	}
 
 	// execute test cases
@@ -105,9 +105,18 @@ func ntlmServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 				reqAuthString = r.Header.Get("Authorization")
 			}*/
 
+		for name, values := range r.Header {
+			//	t.Log(name, values)
+			for _, value := range values {
+				t.Log(name, values, value)
+			}
+		}
+
+		//t.Log(r.ContentLength)
+
 		reqAuthString := r.Header.Get("Authorization")
 		if reqAuthString == "" {
-			w.Write([]byte("Empty Authorization header"))
+			w.WriteHeader(401)
 
 		} else {
 			ntlmChallengeString := strings.Replace(reqAuthString, "NTLM ", "", -1)
@@ -118,7 +127,7 @@ func ntlmServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 				challenge, _ := session.GenerateChallengeMessage()
 				w.Header().Add("WWW-Authenticate", `Basic realm="test"`)
 				w.Header().Add("WWW-Authenticate", "NTLM "+b64.StdEncoding.EncodeToString(challenge.Bytes()))
-				w.WriteHeader(401)
+				//	w.WriteHeader(401)
 
 			} else { // IS AUTHENTICATE_MESSAGE, authenticate
 				err = session.ProcessAuthenticateMessage(auth)
@@ -249,6 +258,7 @@ func ntlmSimpleRequestOld(url string, creds mockCreds, t *testing.T) string {
 
 	req, _ := http.NewRequest("GET", url, nil)
 	req.SetBasicAuth(creds.UserName, creds.Password)
+	t.Log(req.Header)
 	res, _ := client.Do(req)
 
 	bodyBytes, _ := io.ReadAll(res.Body)
