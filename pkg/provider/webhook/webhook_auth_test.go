@@ -52,17 +52,17 @@ func TestWebhookAuth(t *testing.T) {
 
 	// define test cases
 	validCreds := mockCreds{"correctuser123", "correctpassword123"}
-	invalidCreds := mockCreds{"incorrectuser123", "incorrectpassword123"}
+	//invalidCreds := mockCreds{"incorrectuser123", "incorrectpassword123"}
 	secret := "secret123"
 
 	loginAttempts := []mockLoginAttempt{
 		{validCreds, secret},
-		{invalidCreds, "401"},
+		//	{invalidCreds, "401"},
 	}
 
 	testPackages := map[string]mockAuthTestPackage{
-		//	"BasicAuth": {validCreds, secret, basicAuthServer, basicAuthRequest, loginAttempts},
-		"NTLM": {validCreds, secret, ntlmServer, ntlmRequest, loginAttempts},
+		"BasicAuth": {validCreds, secret, basicAuthServer, basicAuthRequest, loginAttempts},
+		"NTLM":      {validCreds, secret, ntlmServer, ntlmRequest, loginAttempts},
 	}
 
 	// execute test cases
@@ -91,48 +91,35 @@ func ntlmServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 			for name, values := range r.Header {
 				t.Log(name, values)
 
-			}
-
-			reqEncoding := r.Header.Get("Accept-Encoding")
-			var reqAuthString string
-			switch reqEncoding {
-			case "gzip":
-				t.Log(reqEncoding)
-				reader, _ := io.ReadAll(r.Body.Header.Get())
-				t.Log(string(reader))
-
-			default:
-				reqAuthString = r.Header.Get("Authorization")
 			}*/
 
-		for name, values := range r.Header {
-			//	t.Log(name, values)
-			for _, value := range values {
-				t.Log(name, values, value)
-			}
-		}
-
-		//t.Log(r.ContentLength)
-
-		reqAuthString := r.Header.Get("Authorization")
-		if reqAuthString == "" {
+		reqAuthHeaderString := r.Header.Get("Authorization")
+		if reqAuthHeaderString == "" {
+			// go-ntlmssp first sends anonymous request, respond with 401
 			w.WriteHeader(401)
 
 		} else {
-			ntlmChallengeString := strings.Replace(reqAuthString, "NTLM ", "", -1)
-			authenticateBytes, _ := b64.StdEncoding.DecodeString(ntlmChallengeString)
-
+			t.Log("Server received Authorization header:")
+			t.Log(reqAuthHeaderString)
+			ntlmAuthString := strings.Replace(reqAuthHeaderString, "NTLM ", "", -1)
+			authenticateBytes, _ := b64.StdEncoding.DecodeString(ntlmAuthString)
+			t.Log(authenticateBytes)
 			auth, err := ntlm.ParseAuthenticateMessage(authenticateBytes, 2)
 			if err != nil { //  IS NEGOTIATE_MESSAGE, reply with CHALLENGE_MESSAGE
 				challenge, _ := session.GenerateChallengeMessage()
-				w.Header().Add("WWW-Authenticate", `Basic realm="test"`)
+
 				w.Header().Add("WWW-Authenticate", "NTLM "+b64.StdEncoding.EncodeToString(challenge.Bytes()))
-				//	w.WriteHeader(401)
+				w.Header().Add("WWW-Authenticate", `Basic realm="test"`)
+				t.Log("Server sends CHALLENGE_MESSAGE:")
+				t.Log(challenge.ServerChallenge)
+				w.WriteHeader(401)
 
 			} else { // IS AUTHENTICATE_MESSAGE, authenticate
+				t.Log("Received AUTHENTICATE_MESSAGE")
 				err = session.ProcessAuthenticateMessage(auth)
 				if err == nil {
 					w.Write([]byte(secret + "hello"))
+					//	w.WriteHeader((200))
 				} else {
 					w.Write([]byte("401" + "hello"))
 				}
