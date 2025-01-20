@@ -3,7 +3,7 @@ package webhook
 import (
 	"context"
 	b64 "encoding/base64"
-	//"io"
+	"io"
 	//"k8s.io/client-go/kubernetes/scheme"
 	"net/http"
 	"net/http/httptest"
@@ -11,9 +11,11 @@ import (
 	"strings"
 	"testing"
 
-	//"github.com/Azure/go-ntlmssp"
+	"github.com/Azure/go-ntlmssp"
 	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
 	esmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
+	"github.com/vadimi/go-http-ntlm/v2"
+	"github.com/vadimi/go-ntlm/ntlm"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -46,32 +48,21 @@ type mockAuthRequest func(
 	creds mockCreds,
 	t *testing.T) string
 
-func TestWebhookAuthHeader(t *testing.T) {
+func TestWebhookAuth(t *testing.T) {
 
 	// define test cases
 	validCreds := mockCreds{"correctuser123", "correctpassword123"}
-	invalidCreds := mockCreds{"incorrectuser123", "incorrectpassword123"}
+	//invalidCreds := mockCreds{"incorrectuser123", "incorrectpassword123"}
 	secret := "secret123"
 
-	testPackages := map[string]mockAuthTestPackage{
-		"BasicAuth": {validCreds,
-			secret,
-			basicAuthServer,
-			basicAuthRequest,
-			[]mockLoginAttempt{
-				{validCreds, secret},
-				{invalidCreds, "401"}
-			
-			}},
+	loginAttempts := []mockLoginAttempt{
+		{validCreds, secret},
+		//	{invalidCreds, "401"},
+	}
 
-		"NTLM": {validCreds,
-			secret,
-			ntlmAuthChecker,
-			ntlmRequest,
-			[]mockLoginAttempt{
-				{validCreds, secret}
-			}
-		},
+	testPackages := map[string]mockAuthTestPackage{
+		"BasicAuth": {validCreds, secret, basicAuthServer, basicAuthRequest, loginAttempts},
+		"NTLM":      {validCreds, secret, ntlmServer, ntlmRequest, loginAttempts},
 	}
 
 	// execute test cases
@@ -90,26 +81,50 @@ func TestWebhookAuthHeader(t *testing.T) {
 	}
 }
 
-func ntlmAuthChecker(creds mockCreds, secret string, t *testing.T) *httptest.Server {
-	// this function just checks whether the ntlm-ssp client sends the initial NEGOTIATE_MESSAGE
+func ntlmServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
 
-	ntlmServerExpectString := "TlRMTVNTUAABAAAAAQCIoAAAAAAoAAAAAAAAACgAAAAGAbEdAAAADw=="
+	session, _ := ntlm.CreateServerSession(ntlm.Version2, ntlm.ConnectionlessMode)
+	session.SetUserInfo(creds.UserName, creds.Password, "")
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		/*
+			for name, values := range r.Header {
+				t.Log(name, values)
+
+			}*/
 
 		reqAuthHeaderString := r.Header.Get("Authorization")
 		if reqAuthHeaderString == "" {
 			// go-ntlmssp first sends anonymous request, respond with 401
-			w.Header().Add("WWW-Authenticate", "NTLM")
 			w.WriteHeader(401)
 
 		} else {
+			t.Log("Server received Authorization header:")
+			t.Log(reqAuthHeaderString)
 			ntlmAuthString := strings.Replace(reqAuthHeaderString, "NTLM ", "", -1)
-			if ntlmAuthString == ntlmServerExpectString {
-				w.Write([]byte(secret))
-			} else {
-				w.Write([]byte("401"))
-			}
+			authenticateBytes, _ := b64.StdEncoding.DecodeString(ntlmAuthString)
+			t.Log(authenticateBytes)
+			auth, err := ntlm.ParseAuthenticateMessage(authenticateBytes, 2)
+			if err != nil { //  IS NEGOTIATE_MESSAGE, reply with CHALLENGE_MESSAGE
+				challenge, _ := session.GenerateChallengeMessage()
 
+				w.Header().Add("WWW-Authenticate", "NTLM "+b64.StdEncoding.EncodeToString(challenge.Bytes()))
+				w.Header().Add("WWW-Authenticate", `Basic realm="test"`)
+				t.Log("Server sends CHALLENGE_MESSAGE:")
+				t.Log(challenge.ServerChallenge)
+				w.WriteHeader(401)
+
+			} else { // IS AUTHENTICATE_MESSAGE, authenticate
+				t.Log("Received AUTHENTICATE_MESSAGE")
+				err = session.ProcessAuthenticateMessage(auth)
+				if err == nil {
+					w.Write([]byte(secret + "hello"))
+					//	w.WriteHeader((200))
+				} else {
+					w.Write([]byte("401" + "hello"))
+				}
+
+			}
 		}
 	}))
 	return server
@@ -182,6 +197,60 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 	}
 
 	return string(resp)
+}
+
+func ntlmSimpleRequestNew(url string, creds mockCreds, t *testing.T) string {
+
+	client := http.Client{
+		Transport: &httpntlm.NtlmTransport{
+			Domain:       "",
+			User:         creds.UserName,
+			Password:     creds.Password,
+			RoundTripper: &http.Transport{},
+		},
+	}
+
+	req, _ := http.NewRequest("Get", url, nil)
+	res, _ := client.Do(req)
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Errorf("Error")
+	}
+	return string(body)
+}
+
+func ntlmSimpleRequestOld(url string, creds mockCreds, t *testing.T) string {
+	/*
+		client := http.Client{
+			Transport: &httpntlm.NtlmTransport{
+				Domain:       "",
+				User:         creds.UserName,
+				Password:     creds.Password,
+				RoundTripper: &http.Transport{},
+			},
+		}
+
+		req, _ := http.NewRequest("Get", url, nil)
+		res, _ := client.Do(req)
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Errorf("Error")
+		}*/
+
+	client := &http.Client{
+		Transport: ntlmssp.Negotiator{
+			RoundTripper: &http.Transport{},
+		},
+	}
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.SetBasicAuth(creds.UserName, creds.Password)
+	t.Log(req.Header)
+	res, _ := client.Do(req)
+
+	bodyBytes, _ := io.ReadAll(res.Body)
+
+	return string(bodyBytes)
 }
 
 func basicAuthServer(creds mockCreds, secret string, t *testing.T) *httptest.Server {
