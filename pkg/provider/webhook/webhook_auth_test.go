@@ -22,11 +22,10 @@ import (
 )
 
 type mockAuthTestPackage struct {
-	Creds        mockCreds
-	ServerSecret string
-	TestServer   mockAuthTestServer
-	Request      mockAuthRequest
-	Expect       string
+	Creds      mockCreds
+	MockServer mockAuthTestServer
+	Request    mockAuthRequest
+	Expect     string
 }
 
 type mockCreds struct {
@@ -36,7 +35,6 @@ type mockCreds struct {
 
 type mockAuthTestServer func(
 	serverCreds mockCreds,
-	serverSecret string,
 	t *testing.T) *httptest.Server
 
 type mockAuthRequest func(
@@ -50,17 +48,19 @@ func TestWebhookAuth(t *testing.T) {
 	creds := mockCreds{"correctuser123", "correctpassword123"}
 	basicAuthExpect := "Basic " + b64.StdEncoding.EncodeToString([]byte(creds.UserName+":"+creds.Password))
 	ntlmExpect := "NTLM TlRMTVNTUAABAAAAAQCIoAAAAAAoAAAAAAAAACgAAAAGAbEdAAAADw=="
+	negotiateExpect := "Negotiate TlRMTVNTUAABAAAAAQCIoAAAAAAoAAAAAAAAACgAAAAGAbEdAAAADw=="
 
-	secret := "secret123"
-
-	testPackages := map[string]mockAuthTestPackage{
-		"BasicAuth": {creds, secret, basicAuthRequestEcho, basicAuthRequest, basicAuthExpect},
-		"NTLM":      {creds, secret, ntlmRequestEcho, ntlmRequest, ntlmExpect},
+	// due to integrated nature of GetSecret(), we use a mock server
+	// to return relevant parts of a request, in this case, the auth header.
+	testAuthHeaders := map[string]mockAuthTestPackage{
+		"BasicAuth": {creds, basicAuthRequestEcho, basicAuthRequest, basicAuthExpect},
+		"NTLM":      {creds, ntlmRequestEcho, ntlmRequest, ntlmExpect},
+		"Negotiate": {creds, negotiateRequestEcho, ntlmRequest, negotiateExpect},
 	}
 
 	// execute test cases
-	for _, p := range testPackages {
-		server := p.TestServer(p.Creds, p.ServerSecret, t)
+	for _, p := range testAuthHeaders {
+		server := p.MockServer(p.Creds, t)
 		defer server.Close()
 
 		result := p.Request(server.URL, creds, t)
@@ -72,7 +72,7 @@ func TestWebhookAuth(t *testing.T) {
 
 }
 
-func ntlmRequestEcho(creds mockCreds, secret string, t *testing.T) *httptest.Server {
+func ntlmRequestEcho(creds mockCreds, t *testing.T) *httptest.Server {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -90,17 +90,35 @@ func ntlmRequestEcho(creds mockCreds, secret string, t *testing.T) *httptest.Ser
 
 }
 
+func negotiateRequestEcho(creds mockCreds, t *testing.T) *httptest.Server {
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		reqAuthString := r.Header.Get("Authorization")
+		if reqAuthString == "" {
+			// go-ntlmssp first sends anonymous request, respond with 401
+			w.Header().Add("WWW-Authenticate", "Negotiate")
+			w.WriteHeader(401)
+
+		} else {
+			w.Write([]byte(reqAuthString))
+		}
+	}))
+	return server
+
+}
+
 func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 
-	testAuthSecretName := "ntlmTestAuthSecret"
-	testNamespace := "default"
+	secretName := "ntlmTestAuthSecret"
+	secretNamespace := "default"
 
 	// ntlm clustersecretstore takes credentials from a secret,
 	// so we need to mock k8s-client retrieval of secret.
-	fakeClient := fake.NewClientBuilder().WithObjects(&corev1.Secret{
+	mockClient := fake.NewClientBuilder().WithObjects(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: testNamespace,
-			Name:      testAuthSecretName,
+			Namespace: secretNamespace,
+			Name:      secretName,
 			Labels: map[string]string{
 				"external-secrets.io/type": "webhook",
 			},
@@ -111,13 +129,14 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 		},
 	}).Build()
 
-	testStore := &esv1beta1.ClusterSecretStore{
+	// create clusteSecretStore
+	ntlmAuthStore := &esv1beta1.ClusterSecretStore{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "ClusterSecretStore",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "webhook-store",
-			Namespace: testNamespace,
+			Namespace: secretNamespace,
 		},
 		Spec: esv1beta1.SecretStoreSpec{
 			Provider: &esv1beta1.SecretStoreProvider{
@@ -126,13 +145,13 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 					Auth: &esv1beta1.AuthorizationProtocol{
 						NTLM: &esv1beta1.NTLMProtocol{
 							UserName: esmeta.SecretKeySelector{
-								Name:      testAuthSecretName,
-								Namespace: &testNamespace,
+								Name:      secretName,
+								Namespace: &secretNamespace,
 								Key:       "userName",
 							},
 							Password: esmeta.SecretKeySelector{
-								Name:      testAuthSecretName,
-								Namespace: &testNamespace,
+								Name:      secretName,
+								Namespace: &secretNamespace,
 								Key:       "password",
 							},
 						},
@@ -142,23 +161,11 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 		},
 	}
 
-	testProv := &Provider{}
-	client, err := testProv.NewClient(context.Background(), testStore, fakeClient, testNamespace)
-	if err != nil {
-		t.Errorf("Error creating client: %q", err)
-		return "error"
-	}
-
-	testRef := esv1beta1.ExternalSecretDataRemoteRef{Key: "dummy"}
-	resp, err := client.GetSecret(context.Background(), testRef)
-	if err != nil {
-		t.Errorf("Error retrieving secret:%s", err)
-	}
-
-	return string(resp)
+	result := exerciseGetSecret(ntlmAuthStore, mockClient, t)
+	return result
 }
 
-func basicAuthRequestEcho(creds mockCreds, secret string, t *testing.T) *httptest.Server {
+func basicAuthRequestEcho(creds mockCreds, t *testing.T) *httptest.Server {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -197,27 +204,8 @@ func basicAuthRequest(url string, creds mockCreds, t *testing.T) string {
 			},
 		},
 	}
-
-	return (exerciseGetSecret(basicAuthStore, nil, t))
-	/*
-	   // create HTTP client from ClusterSecretStore
-	   testProv := &Provider{}
-	   client, err := testProv.NewClient(context.Background(), testStore, nil, "testnamespace")
-
-	   	if err != nil {
-	   		t.Errorf("Error creating client: %q", err)
-	   		return "error"
-	   	}
-
-	   // perform request, exercising GetSecret
-	   resp, err := client.GetSecret(context.Background(), esv1beta1.ExternalSecretDataRemoteRef{Key: "dummy"})
-
-	   	if err != nil {
-	   		t.Errorf("Error retrieving secret:%s", err)
-	   	}
-
-	   return string(resp)
-	*/
+	result := exerciseGetSecret(basicAuthStore, nil, t)
+	return result
 }
 
 func exerciseGetSecret(mockStore esv1beta1.GenericStore, mockKubeClient client.Client, t *testing.T) string {
