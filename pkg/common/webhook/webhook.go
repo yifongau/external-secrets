@@ -29,7 +29,6 @@ import (
 
 	"github.com/Azure/go-ntlmssp"
 	"github.com/PaesslerAG/jsonpath"
-	//"github.com/vadimi/go-http-ntlm/v2"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -221,7 +220,6 @@ func (w *Webhook) GetWebhookData(ctx context.Context, provider *Spec, ref *esv1b
 
 			// This overwrites auth headers set by providers.headers
 			req.SetBasicAuth(username, password)
-
 		}
 	}
 

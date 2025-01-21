@@ -1,24 +1,32 @@
+// /*
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// */
 package webhook
 
 import (
 	"context"
 	b64 "encoding/base64"
-	//"io"
-	//"k8s.io/client-go/kubernetes/scheme"
 	"net/http"
 	"net/http/httptest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	//	"strings"
 	"testing"
 
-	//	"github.com/Azure/go-ntlmssp"
-	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
-	esmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
-	//"github.com/vadimi/go-http-ntlm/v2"
-	//	"github.com/vadimi/go-ntlm/ntlm"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	esv1beta1 "github.com/external-secrets/external-secrets/apis/externalsecrets/v1beta1"
+	esmeta "github.com/external-secrets/external-secrets/apis/meta/v1"
 )
 
 type mockAuthTestPackage struct {
@@ -43,7 +51,6 @@ type mockAuthRequest func(
 	t *testing.T) string
 
 func TestWebhookAuth(t *testing.T) {
-
 	// define test cases
 	creds := mockCreds{"correctuser123", "correctpassword123"}
 	basicAuthExpect := "Basic " + b64.StdEncoding.EncodeToString([]byte(creds.UserName+":"+creds.Password))
@@ -69,47 +76,37 @@ func TestWebhookAuth(t *testing.T) {
 			t.Errorf("Test failed. Result: '%s' / Expected:  '%s'", result, expect)
 		}
 	}
-
 }
 
 func ntlmRequestEcho(creds mockCreds, t *testing.T) *httptest.Server {
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		reqAuthString := r.Header.Get("Authorization")
 		if reqAuthString == "" {
 			// go-ntlmssp first sends anonymous request, respond with 401
 			w.Header().Add("WWW-Authenticate", "NTLM")
 			w.WriteHeader(401)
-
 		} else {
 			w.Write([]byte(reqAuthString))
 		}
 	}))
 	return server
-
 }
 
 func negotiateRequestEcho(creds mockCreds, t *testing.T) *httptest.Server {
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		reqAuthString := r.Header.Get("Authorization")
 		if reqAuthString == "" {
 			// go-ntlmssp first sends anonymous request, respond with 401
 			w.Header().Add("WWW-Authenticate", "Negotiate")
 			w.WriteHeader(401)
-
 		} else {
 			w.Write([]byte(reqAuthString))
 		}
 	}))
 	return server
-
 }
 
 func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
-
 	secretName := "ntlmTestAuthSecret"
 	secretNamespace := "default"
 
@@ -166,9 +163,7 @@ func ntlmRequest(url string, creds mockCreds, t *testing.T) string {
 }
 
 func basicAuthRequestEcho(creds mockCreds, t *testing.T) *httptest.Server {
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		reqAuthString := r.Header.Get("Authorization")
 		if reqAuthString == "" {
 			w.Write([]byte("Empty Authorization header"))
@@ -178,7 +173,6 @@ func basicAuthRequestEcho(creds mockCreds, t *testing.T) *httptest.Server {
 	}))
 
 	return server
-
 }
 
 func basicAuthRequest(url string, creds mockCreds, t *testing.T) string {
@@ -222,5 +216,4 @@ func exerciseGetSecret(mockStore esv1beta1.GenericStore, mockKubeClient client.C
 		t.Errorf("Error retrieving secret:%s", err)
 	}
 	return string(resp)
-
 }
