@@ -27,7 +27,7 @@ type ClusterGeneratorSpec struct {
 }
 
 // GeneratorKind represents a kind of generator.
-// +kubebuilder:validation:Enum=ACRAccessToken;ECRAuthorizationToken;Fake;GCRAccessToken;GithubAccessToken;Password;STSSessionToken;UUID;VaultDynamicSecret;Webhook
+// +kubebuilder:validation:Enum=ACRAccessToken;ECRAuthorizationToken;Fake;GCRAccessToken;GithubAccessToken;QuayAccessToken;Password;STSSessionToken;UUID;VaultDynamicSecret;Webhook
 type GeneratorKind string
 
 const (
@@ -36,6 +36,7 @@ const (
 	GeneratorKindFake                  GeneratorKind = "Fake"
 	GeneratorKindGCRAccessToken        GeneratorKind = "GCRAccessToken"
 	GeneratorKindGithubAccessToken     GeneratorKind = "GithubAccessToken"
+	GeneratorKindQuayAccessToken       GeneratorKind = "QuayAccessToken"
 	GeneratorKindPassword              GeneratorKind = "Password"
 	GeneratorKindSTSSessionToken       GeneratorKind = "STSSessionToken"
 	GeneratorKindUUID                  GeneratorKind = "UUID"
@@ -47,10 +48,11 @@ const (
 // +kubebuilder:validation:MinProperties=1
 type GeneratorSpec struct {
 	ACRAccessTokenSpec        *ACRAccessTokenSpec        `json:"acrAccessTokenSpec,omitempty"`
-	ECRAuthorizationTokenSpec *ECRAuthorizationTokenSpec `json:"ecrRAuthorizationTokenSpec,omitempty"`
+	ECRAuthorizationTokenSpec *ECRAuthorizationTokenSpec `json:"ecrAuthorizationTokenSpec,omitempty"`
 	FakeSpec                  *FakeSpec                  `json:"fakeSpec,omitempty"`
 	GCRAccessTokenSpec        *GCRAccessTokenSpec        `json:"gcrAccessTokenSpec,omitempty"`
 	GithubAccessTokenSpec     *GithubAccessTokenSpec     `json:"githubAccessTokenSpec,omitempty"`
+	QuayAccessTokenSpec       *QuayAccessTokenSpec       `json:"quayAccessTokenSpec,omitempty"`
 	PasswordSpec              *PasswordSpec              `json:"passwordSpec,omitempty"`
 	STSSessionTokenSpec       *STSSessionTokenSpec       `json:"stsSessionTokenSpec,omitempty"`
 	UUIDSpec                  *UUIDSpec                  `json:"uuidSpec,omitempty"`

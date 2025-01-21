@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: clusterexternalsecrets.external-secrets.io
@@ -155,6 +155,7 @@ spec:
                                       - Fake
                                       - GCRAccessToken
                                       - GithubAccessToken
+                                      - QuayAccessToken
                                       - Password
                                       - STSSessionToken
                                       - UUID
@@ -341,6 +342,7 @@ spec:
                                       - Fake
                                       - GCRAccessToken
                                       - GithubAccessToken
+                                      - QuayAccessToken
                                       - Password
                                       - STSSessionToken
                                       - UUID
@@ -734,7 +736,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: clustersecretstores.external-secrets.io
@@ -6576,7 +6578,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: externalsecrets.external-secrets.io
@@ -7008,6 +7010,7 @@ spec:
                                   - Fake
                                   - GCRAccessToken
                                   - GithubAccessToken
+                                  - QuayAccessToken
                                   - Password
                                   - STSSessionToken
                                   - UUID
@@ -7194,6 +7197,7 @@ spec:
                                   - Fake
                                   - GCRAccessToken
                                   - GithubAccessToken
+                                  - QuayAccessToken
                                   - Password
                                   - STSSessionToken
                                   - UUID
@@ -7482,7 +7486,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: pushsecrets.external-secrets.io
@@ -7662,6 +7666,7 @@ spec:
                             - Fake
                             - GCRAccessToken
                             - GithubAccessToken
+                            - QuayAccessToken
                             - Password
                             - STSSessionToken
                             - UUID
@@ -7920,7 +7925,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: secretstores.external-secrets.io
@@ -13762,7 +13767,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: acraccesstokens.generators.external-secrets.io
@@ -13979,7 +13984,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: clustergenerators.generators.external-secrets.io
@@ -14175,7 +14180,7 @@ spec:
                         - auth
                         - registry
                       type: object
-                    ecrRAuthorizationTokenSpec:
+                    ecrAuthorizationTokenSpec:
                       properties:
                         auth:
                           description: Auth defines how to authenticate with AWS
@@ -14307,6 +14312,11 @@ spec:
                           description: |-
                             You can assume a role before making calls to the
                             desired AWS service.
+                          type: string
+                        scope:
+                          description: |-
+                            Scope specifies the ECR service scope.
+                            Valid options are private and public.
                           type: string
                       required:
                         - region
@@ -14512,6 +14522,46 @@ spec:
                         - length
                         - noUpper
                       type: object
+                    quayAccessTokenSpec:
+                      properties:
+                        robotAccount:
+                          description: Name of the robot account you are federating with
+                          type: string
+                        serviceAccountRef:
+                          description: Name of the service account you are federating with
+                          properties:
+                            audiences:
+                              description: |-
+                                Audience specifies the `aud` claim for the service account token
+                                If the service account uses a well-known annotation for e.g. IRSA or GCP Workload Identity
+                                then this audiences will be appended to the list
+                              items:
+                                type: string
+                              type: array
+                            name:
+                              description: The name of the ServiceAccount resource being referred to.
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                            namespace:
+                              description: |-
+                                Namespace of the resource being referred to.
+                                Ignored if referent is not cluster-scoped, otherwise defaults to the namespace of the referent.
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                              type: string
+                          required:
+                            - name
+                          type: object
+                        url:
+                          description: URL configures the Quay instance URL. Defaults to quay.io.
+                          type: string
+                      required:
+                        - robotAccount
+                        - serviceAccountRef
+                      type: object
                     stsSessionTokenSpec:
                       properties:
                         auth:
@@ -14674,6 +14724,10 @@ spec:
                       type: object
                     vaultDynamicSecretSpec:
                       properties:
+                        allowEmptyResponse:
+                          default: false
+                          description: Do not fail if no secrets are found. Useful for requests where no data is expected.
+                          type: boolean
                         controller:
                           description: |-
                             Used to select the correct ESO controller (think: ingress.ingressClassName)
@@ -15583,6 +15637,7 @@ spec:
                     - Fake
                     - GCRAccessToken
                     - GithubAccessToken
+                    - QuayAccessToken
                     - Password
                     - STSSessionToken
                     - UUID
@@ -15613,7 +15668,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: ecrauthorizationtokens.generators.external-secrets.io
@@ -15790,6 +15845,11 @@ spec:
                     You can assume a role before making calls to the
                     desired AWS service.
                   type: string
+                scope:
+                  description: |-
+                    Scope specifies the ECR service scope.
+                    Valid options are private and public.
+                  type: string
               required:
                 - region
               type: object
@@ -15813,7 +15873,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: fakes.generators.external-secrets.io
@@ -15889,7 +15949,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: gcraccesstokens.generators.external-secrets.io
@@ -16032,7 +16092,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: githubaccesstokens.generators.external-secrets.io
@@ -16155,7 +16215,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: passwords.generators.external-secrets.io
@@ -16253,7 +16313,105 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
+  labels:
+    external-secrets.io/component: controller
+  name: quayaccesstokens.generators.external-secrets.io
+spec:
+  group: generators.external-secrets.io
+  names:
+    categories:
+      - external-secrets
+      - external-secrets-generators
+    kind: QuayAccessToken
+    listKind: QuayAccessTokenList
+    plural: quayaccesstokens
+    singular: quayaccesstoken
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: QuayAccessToken generates Quay oauth token for pulling/pushing images
+          properties:
+            apiVersion:
+              description: |-
+                APIVersion defines the versioned schema of this representation of an object.
+                Servers should convert recognized schemas to the latest internal value, and
+                may reject unrecognized values.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+              type: string
+            kind:
+              description: |-
+                Kind is a string value representing the REST resource this object represents.
+                Servers may infer this from the endpoint the client submits requests to.
+                Cannot be updated.
+                In CamelCase.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+              type: string
+            metadata:
+              type: object
+            spec:
+              properties:
+                robotAccount:
+                  description: Name of the robot account you are federating with
+                  type: string
+                serviceAccountRef:
+                  description: Name of the service account you are federating with
+                  properties:
+                    audiences:
+                      description: |-
+                        Audience specifies the `aud` claim for the service account token
+                        If the service account uses a well-known annotation for e.g. IRSA or GCP Workload Identity
+                        then this audiences will be appended to the list
+                      items:
+                        type: string
+                      type: array
+                    name:
+                      description: The name of the ServiceAccount resource being referred to.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace of the resource being referred to.
+                        Ignored if referent is not cluster-scoped, otherwise defaults to the namespace of the referent.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                  required:
+                    - name
+                  type: object
+                url:
+                  description: URL configures the Quay instance URL. Defaults to quay.io.
+                  type: string
+              required:
+                - robotAccount
+                - serviceAccountRef
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+  conversion:
+    strategy: Webhook
+    webhook:
+      conversionReviewVersions:
+        - v1
+      clientConfig:
+        service:
+          name: kubernetes
+          namespace: default
+          path: /convert
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: stssessiontokens.generators.external-secrets.io
@@ -16472,7 +16630,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: uuids.generators.external-secrets.io
@@ -16533,7 +16691,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: vaultdynamicsecrets.generators.external-secrets.io
@@ -16572,6 +16730,10 @@ spec:
               type: object
             spec:
               properties:
+                allowEmptyResponse:
+                  default: false
+                  description: Do not fail if no secrets are found. Useful for requests where no data is expected.
+                  type: boolean
                 controller:
                   description: |-
                     Used to select the correct ESO controller (think: ingress.ingressClassName)
@@ -17392,7 +17554,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.5
+    controller-gen.kubebuilder.io/version: v0.17.1
   labels:
     external-secrets.io/component: controller
   name: webhooks.generators.external-secrets.io
