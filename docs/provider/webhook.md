@@ -67,7 +67,7 @@ data:
   foobar: c2VjcmV0
 ```
 
-#### Limitations
+#### Authentication
 
 Webhook also supports using NTLM for authorization:
 
